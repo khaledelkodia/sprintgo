@@ -1,0 +1,72 @@
+name: Build Android APKs
+
+# Builds installable debug APKs for the SprintGo customer AND courier apps on
+# every push that touches them, and on manual dispatch. Each app's APK is a
+# separate downloadable artifact on the run.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/customer/**'
+      - 'apps/courier/**'
+      - 'packages/shared/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer, courier]
+    # prisma generate (api postinstall) reads this but never connects during a build
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/sprintgo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build shared contract
+        run: pnpm --filter @sprintgo/shared build
+
+      - name: Build ${{ matrix.app }} web bundle
+        run: pnpm --filter @sprintgo/${{ matrix.app }} build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Add Android platform
+        working-directory: apps/${{ matrix.app }}
+        run: npx cap add android
+
+      - name: Sync web assets into Android
+        working-directory: apps/${{ matrix.app }}
+        run: npx cap sync android
+
+      - name: Assemble debug APK
+        working-directory: apps/${{ matrix.app }}/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprintgo-${{ matrix.app }}-apk
+          path: apps/${{ matrix.app }}/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

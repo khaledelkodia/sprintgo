@@ -1,0 +1,21 @@
+# Local infrastructure for machines without native PostgreSQL/Redis.
+# (This dev machine runs native PostgreSQL 18 — compose is optional here.)
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sprintgo
+      POSTGRES_PASSWORD: sprintgo
+      POSTGRES_DB: sprintgo
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+
+volumes:
+  pgdata:

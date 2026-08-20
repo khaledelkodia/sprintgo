@@ -1,0 +1,6 @@
+{
+  "name": "@sprintgo/config",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared tooling presets (tsconfig) for the SprintGo workspace"
+}

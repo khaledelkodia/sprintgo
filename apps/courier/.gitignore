@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+
+# Capacitor native projects are generated in CI (npx cap add android)
+android
+ios

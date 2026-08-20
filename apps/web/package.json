@@ -1,0 +1,33 @@
+{
+  "name": "@sprintgo/web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare",
+    "test": "echo web-tests-arrive-with-phase-1"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.11.0",
+    "@sprintgo/shared": "workspace:*",
+    "@vueuse/core": "^13.0.0",
+    "@vueuse/nuxt": "^13.0.0",
+    "leaflet": "^1.9.4",
+    "nuxt": "^4.1.0",
+    "pinia": "^3.0.0",
+    "socket.io-client": "^4.8.0",
+    "vue": "^3.5.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/leaflet": "^1.9.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.8.0",
+    "vue-tsc": "^3.0.0"
+  }
+}

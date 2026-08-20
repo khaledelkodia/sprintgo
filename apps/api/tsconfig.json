@@ -1,0 +1,14 @@
+{
+  "extends": "@sprintgo/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "declaration": false,
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["src", "prisma", "tests", "vitest.config.ts"]
+}

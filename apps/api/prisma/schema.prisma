@@ -1,0 +1,644 @@
+// SprintGo — MVP schema. Reference: docs/architecture/03-database-schema.md
+// Any divergence between this file and the doc is a bug — fix both in one PR.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum Role {
+  CUSTOMER
+  MERCHANT
+  COURIER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum StoreStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+/// How a store shows up to customers:
+/// - PICKUP_POINT: just a named place (a shop the customer can point an errand at); no catalog, no owner login.
+/// - CATALOG: a full store — browsable products, its own owner login + dashboard, and a product-count cap.
+enum StoreListingType {
+  PICKUP_POINT
+  CATALOG
+}
+
+enum FlowType {
+  DELIVERY
+  ERRAND
+  BOOKING
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  PLACED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  CARD
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum OtpPurpose {
+  LOGIN
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ASSIGNED
+  PICKED_UP
+  DELIVERED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum FeePayer {
+  RECIPIENT
+  SENDER
+}
+
+enum DevicePlatform {
+  WEB
+  IOS
+  ANDROID
+}
+
+// ─────────────────────── Identity ───────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  phone        String     @unique
+  name         String?
+  email        String?    @unique
+  passwordHash String?    @map("password_hash")
+  roles        Role[]     @default([CUSTOMER])
+  status       UserStatus @default(ACTIVE)
+  language     String     @default("ar")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  addresses      Address[]
+  orders         Order[]
+  stores         Store[]
+  refreshTokens  RefreshToken[]
+  notifications     Notification[]
+  deviceTokens      DeviceToken[]
+  pushSubscriptions PushSubscription[]
+  reviews           Review[]
+  courierProfile    CourierProfile?
+  deliveries        DeliveryAssignment[]
+  courierRemittances CourierRemittance[]
+  appRoles          UserAppRole[]
+
+  @@map("users")
+}
+
+/// A distributable bundle of fine-grained permission keys (see
+/// packages/shared/src/permissions.ts). System roles are seeded and locked;
+/// custom roles are created by the super admin. `permissions` holds the string
+/// keys directly — the catalog itself lives in code, not the DB.
+model AppRole {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  nameAr      String   @map("name_ar")
+  description String?
+  permissions String[]
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members UserAppRole[]
+
+  @@map("app_roles")
+}
+
+/// Join: which staff hold which roles. A user's effective permissions are the
+/// union across all their roles (super admin bypasses via the `*` wildcard).
+model UserAppRole {
+  userId    String   @map("user_id")
+  appRoleId String   @map("app_role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appRole AppRole @relation(fields: [appRoleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, appRoleId])
+  @@index([appRoleId])
+  @@map("user_app_roles")
+}
+
+model OtpRequest {
+  id         String     @id @default(cuid())
+  phone      String
+  codeHash   String     @map("code_hash")
+  purpose    OtpPurpose @default(LOGIN)
+  attempts   Int        @default(0)
+  expiresAt  DateTime   @map("expires_at")
+  consumedAt DateTime?  @map("consumed_at")
+  ip         String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("otp_requests")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  familyId   String    @map("family_id")
+  deviceInfo String?   @map("device_info")
+  ip         String?
+  expiresAt  DateTime  @map("expires_at")
+  rotatedAt  DateTime? @map("rotated_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model DeviceToken {
+  id         String         @id @default(cuid())
+  userId     String         @map("user_id")
+  token      String         @unique
+  platform   DevicePlatform @default(WEB)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  lastUsedAt DateTime?      @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("device_tokens")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ──────────────────────── Catalog ────────────────────────
+
+model ServiceType {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  nameAr    String   @map("name_ar")
+  nameEn    String   @map("name_en")
+  icon      String
+  flowType  FlowType @default(DELIVERY) @map("flow_type")
+  config    Json     @default("{}")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stores Store[]
+  orders Order[]
+
+  @@map("service_types")
+}
+
+model Store {
+  id                String      @id @default(cuid())
+  serviceTypeId     String           @map("service_type_id")
+  ownerId           String           @map("owner_id")
+  name              String
+  slug              String           @unique
+  listingType       StoreListingType @default(CATALOG) @map("listing_type")
+  description       String?
+  logoUrl           String?          @map("logo_url")
+  coverUrl          String?          @map("cover_url")
+  contactPhone      String           @map("contact_phone")
+  status            StoreStatus      @default(PENDING)
+  addressText       String           @map("address_text")
+  lat               Decimal?         @db.Decimal(10, 7)
+  lng               Decimal?         @db.Decimal(10, 7)
+  minOrderTotal     Int              @default(0) @map("min_order_total")
+  prepTimeMins      Int              @default(20) @map("prep_time_mins")
+  productLimit      Int?             @map("product_limit") // max products the store may list; null = unlimited
+  // which store-dashboard capabilities the owner user has (merchant permission keys). Empty = all (grandfathered).
+  managerPermissions String[]        @default([]) @map("manager_permissions")
+  isAcceptingOrders Boolean          @default(true) @map("is_accepting_orders")
+  ratingAvg         Decimal     @default(0) @db.Decimal(3, 2) @map("rating_avg")
+  ratingCount       Int         @default(0) @map("rating_count")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  deletedAt         DateTime?   @map("deleted_at")
+
+  serviceType  ServiceType    @relation(fields: [serviceTypeId], references: [id])
+  owner        User           @relation(fields: [ownerId], references: [id])
+  workingHours WorkingHour[]
+  zones        StoreZone[]
+  categories   MenuCategory[]
+  products     Product[]
+  orders       Order[]
+  reviews      Review[]
+
+  @@index([serviceTypeId, status])
+  @@index([ownerId])
+  @@map("stores")
+}
+
+model WorkingHour {
+  id        String @id @default(cuid())
+  storeId   String @map("store_id")
+  dayOfWeek Int    @map("day_of_week")
+  opensAt   String @map("opens_at")
+  closesAt  String @map("closes_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, dayOfWeek, opensAt])
+  @@map("working_hours")
+}
+
+model MenuCategory {
+  id        String   @id @default(cuid())
+  storeId   String   @map("store_id")
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([storeId])
+  @@map("menu_categories")
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  storeId     String    @map("store_id")
+  categoryId  String?   @map("category_id")
+  name        String
+  description String?
+  imageUrl    String?   @map("image_url")
+  price       Int
+  isAvailable Boolean   @default(true) @map("is_available")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  store        Store         @relation(fields: [storeId], references: [id])
+  category     MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  optionGroups OptionGroup[]
+  orderItems   OrderItem[]
+
+  @@index([storeId, isAvailable])
+  @@map("products")
+}
+
+model OptionGroup {
+  id        String @id @default(cuid())
+  productId String @map("product_id")
+  name      String
+  minSelect Int    @default(0) @map("min_select")
+  maxSelect Int    @default(1) @map("max_select")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options ProductOption[]
+
+  @@map("option_groups")
+}
+
+model ProductOption {
+  id          String  @id @default(cuid())
+  groupId     String  @map("group_id")
+  name        String
+  priceDelta  Int     @default(0) @map("price_delta")
+  isAvailable Boolean @default(true) @map("is_available")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  group OptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("product_options")
+}
+
+// ────────────────────────── Geo ──────────────────────────
+
+model Zone {
+  id       String   @id @default(cuid())
+  city     String
+  nameAr   String   @map("name_ar")
+  nameEn   String?  @map("name_en")
+  lat      Decimal? @db.Decimal(10, 7)
+  lng      Decimal? @db.Decimal(10, 7)
+  isActive Boolean  @default(true) @map("is_active")
+
+  storeZones    StoreZone[]
+  addresses     Address[]
+  orders        Order[]
+  errandPickups ErrandDetail[]
+
+  @@unique([city, nameAr])
+  @@map("zones")
+}
+
+model StoreZone {
+  id          String @id @default(cuid())
+  storeId     String @map("store_id")
+  zoneId      String @map("zone_id")
+  deliveryFee Int    @map("delivery_fee")
+  etaMins     Int?   @map("eta_mins")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  zone  Zone  @relation(fields: [zoneId], references: [id])
+
+  @@unique([storeId, zoneId])
+  @@map("store_zones")
+}
+
+model Address {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  zoneId       String    @map("zone_id")
+  label        String
+  street       String
+  building     String?
+  floor        String?
+  apartment    String?
+  landmark     String?
+  contactPhone String?   @map("contact_phone")
+  lat          Decimal?  @db.Decimal(10, 7)
+  lng          Decimal?  @db.Decimal(10, 7)
+  isDefault    Boolean   @default(false) @map("is_default")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone Zone @relation(fields: [zoneId], references: [id])
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ──────────────────────── Ordering ───────────────────────
+
+model Order {
+  id               String          @id @default(cuid())
+  code             String          @unique
+  idempotencyKey   String?         @unique @map("idempotency_key")
+  customerId       String          @map("customer_id")
+  storeId          String?         @map("store_id")
+  serviceTypeId    String          @map("service_type_id")
+  zoneId           String?         @map("zone_id")
+  status           OrderStatus     @default(PLACED)
+  fulfillmentType  FulfillmentType @default(DELIVERY) @map("fulfillment_type")
+  paymentMethod    PaymentMethod   @default(COD) @map("payment_method")
+  paymentStatus    PaymentStatus   @default(PENDING) @map("payment_status")
+  addressSnapshot  Json?           @map("address_snapshot")
+  customerNotes    String?         @map("customer_notes")
+  subtotal         Int
+  deliveryFee      Int             @default(0) @map("delivery_fee")
+  discount         Int             @default(0)
+  total            Int
+  // platform's cut of this order's delivery fee (piastres) — the courier remits it after delivery
+  platformCommission Int           @default(0) @map("platform_commission")
+  scheduledFor     DateTime?       @map("scheduled_for")
+  estimatedReadyAt DateTime?       @map("estimated_ready_at")
+  placedAt         DateTime        @default(now()) @map("placed_at")
+  acceptedAt       DateTime?       @map("accepted_at")
+  readyAt          DateTime?       @map("ready_at")
+  dispatchedAt     DateTime?       @map("dispatched_at")
+  deliveredAt      DateTime?       @map("delivered_at")
+  completedAt      DateTime?       @map("completed_at")
+  cancelledAt      DateTime?       @map("cancelled_at")
+  cancelReason     String?         @map("cancel_reason")
+  cancelledByRole  Role?           @map("cancelled_by_role")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  customer     User                 @relation(fields: [customerId], references: [id])
+  store        Store?               @relation(fields: [storeId], references: [id])
+  serviceType  ServiceType          @relation(fields: [serviceTypeId], references: [id])
+  zone         Zone?                @relation(fields: [zoneId], references: [id])
+  items        OrderItem[]
+  statusEvents OrderStatusEvent[]
+  review       Review?
+  errandDetail ErrandDetail?
+  assignments  DeliveryAssignment[]
+
+  @@index([storeId, status, placedAt])
+  @@index([customerId, placedAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  productId String? @map("product_id")
+  name      String
+  unitPrice Int     @map("unit_price")
+  quantity  Int
+  lineTotal Int     @map("line_total")
+  options   Json    @default("[]")
+  notes     String?
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderStatusEvent {
+  id         String       @id @default(cuid())
+  orderId    String       @map("order_id")
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  actorId    String?      @map("actor_id")
+  actorRole  Role?        @map("actor_role")
+  note       String?
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_events")
+}
+
+// ──────────────────────── Delivery ───────────────────────
+
+model ErrandDetail {
+  id              String   @id @default(cuid())
+  orderId         String   @unique @map("order_id")
+  pickupText      String?  @map("pickup_text")
+  pickupZoneId    String?  @map("pickup_zone_id")
+  instructions    String
+  recipientName   String?  @map("recipient_name")
+  recipientPhone  String?  @map("recipient_phone")
+  purchaseBudget  Int?     @map("purchase_budget")
+  actualGoodsCost Int?     @map("actual_goods_cost")
+  codToCollect    Int      @default(0) @map("cod_to_collect")
+  feePaidBy       FeePayer @default(RECIPIENT) @map("fee_paid_by")
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupZone Zone? @relation(fields: [pickupZoneId], references: [id])
+
+  @@map("errand_details")
+}
+
+/// A cash hand-in from a courier to the platform — settles the commission
+/// (+ any goods money) they collected. Balance due = Σ order remittances − Σ these.
+model CourierRemittance {
+  id           String   @id @default(cuid())
+  courierId    String   @map("courier_id")
+  amount       Int
+  recordedById String?  @map("recorded_by_id") // the admin who logged the hand-in
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  courier User @relation(fields: [courierId], references: [id], onDelete: Cascade)
+
+  @@index([courierId, createdAt])
+  @@map("courier_remittances")
+}
+
+model CourierProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique @map("user_id")
+  isAvailable    Boolean   @default(false) @map("is_available")
+  lat            Decimal?  @db.Decimal(10, 7)
+  lng            Decimal?  @db.Decimal(10, 7)
+  lastLocationAt DateTime? @map("last_location_at")
+  lastSeenAt     DateTime? @map("last_seen_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("courier_profiles")
+}
+
+model DeliveryAssignment {
+  id           String           @id @default(cuid())
+  orderId      String           @map("order_id")
+  courierId    String           @map("courier_id")
+  assignedById String?          @map("assigned_by_id") // null when auto-offered by the system
+  status       AssignmentStatus @default(ASSIGNED)
+  offeredAt    DateTime?        @map("offered_at")
+  expiresAt    DateTime?        @map("expires_at")
+  respondedAt  DateTime?        @map("responded_at")
+  assignedAt   DateTime         @default(now()) @map("assigned_at")
+  pickedUpAt   DateTime?        @map("picked_up_at")
+  deliveredAt  DateTime?        @map("delivered_at")
+  cancelledAt  DateTime?        @map("cancelled_at")
+  cancelReason String?          @map("cancel_reason")
+
+  order   Order @relation(fields: [orderId], references: [id])
+  courier User  @relation(fields: [courierId], references: [id])
+
+  @@index([orderId])
+  @@index([courierId, status])
+  @@map("delivery_assignments")
+}
+
+// ─────────────────────── Engagement ──────────────────────
+
+model Review {
+  id            String    @id @default(cuid())
+  orderId       String    @unique @map("order_id")
+  customerId    String    @map("customer_id")
+  storeId       String    @map("store_id")
+  rating        Int
+  comment       String?
+  merchantReply String?   @map("merchant_reply")
+  repliedAt     DateTime? @map("replied_at")
+  isPublished   Boolean   @default(true) @map("is_published")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  order    Order @relation(fields: [orderId], references: [id])
+  customer User  @relation(fields: [customerId], references: [id])
+  store    Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ─────────────────────── Platform ────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @map("actor_id")
+  actorRole  Role?    @map("actor_role")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  meta       Json?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}

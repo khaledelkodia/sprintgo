@@ -1,0 +1,225 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   SprintGo design system — shared with the customer app so both
+   installs feel like one product. Same tokens, shadows, type.
+   ============================================================ */
+@theme {
+  --font-sans: 'IBM Plex Sans Arabic', -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  /* brand */
+  --color-primary: #2563eb;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+
+  --color-secondary: #f97316;
+  --color-secondary-600: #ea580c;
+  --color-secondary-700: #c2410c;
+  --color-secondary-50: #fff7ed;
+  --color-secondary-100: #ffedd5;
+
+  --color-success: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+
+  --color-purple: #7c3aed;
+  --color-teal: #0d9488;
+  --color-cyan: #0891b2;
+  --color-pink: #db2777;
+  --color-amber: #d97706;
+
+  /* ink / neutrals */
+  --color-ink: #0f172a;
+  --color-ink-700: #334155;
+  --color-ink-600: #475569;
+  --color-ink-soft: #64748b;
+  --color-ink-muted: #94a3b8;
+  --color-line-300: #cbd5e1;
+  --color-line: #e2e8f0;
+  --color-line-100: #f1f5f9;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef2f7;
+  --color-canvas: #e9eef5;
+
+  /* radii */
+  --radius-tile: 20px;
+  --radius-card: 24px;
+  --radius-xl: 26px;
+  --radius-screen: 46px;
+
+  /* signature shadows */
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px rgba(15, 23, 42, 0.07);
+  --shadow-card-lg: 0 2px 4px rgba(15, 23, 42, 0.05), 0 20px 44px rgba(15, 23, 42, 0.12);
+  --shadow-nav: 0 2px 4px rgba(15, 23, 42, 0.05), 0 16px 36px rgba(15, 23, 42, 0.12);
+  --shadow-btn: 0 14px 30px rgba(37, 99, 235, 0.34);
+}
+
+/* ---------- base ---------- */
+html,
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+#root {
+  min-height: 100dvh;
+}
+button {
+  font-family: inherit;
+}
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ---------- reusable component primitives ---------- */
+@layer components {
+  .sg-screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background: var(--color-bg);
+    padding-top: env(safe-area-inset-top);
+  }
+  .sg-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .sg-card {
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  .sg-card-soft {
+    background: var(--color-surface);
+    border-radius: 22px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .sg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 60px;
+    border-radius: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s ease;
+  }
+  .sg-btn:active {
+    transform: translateY(1px);
+  }
+  .sg-btn-primary {
+    background: var(--color-primary);
+    color: #fff;
+    box-shadow: var(--shadow-btn);
+  }
+  .sg-btn-success {
+    background: var(--color-success);
+    color: #fff;
+    box-shadow: 0 14px 30px rgba(34, 197, 94, 0.32);
+  }
+  .sg-btn-secondary {
+    background: var(--color-line-100);
+    color: var(--color-ink);
+  }
+
+  .sg-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .sg-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-nav);
+    padding: 12px 8px 10px;
+  }
+  .sg-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    color: var(--color-ink-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+  }
+  .sg-nav-item[data-active='true'] {
+    color: var(--color-primary);
+  }
+  .sg-nav-item[data-active='true'] span {
+    font-weight: 700;
+  }
+  .sg-nav-bar {
+    position: sticky;
+    bottom: 0;
+    padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+    background: rgba(248, 250, 252, 0.72);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+}
+
+/* ---------- animations ---------- */
+@keyframes sgSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sgPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes sgShimmer {
+  0% {
+    background-position: -320px 0;
+  }
+  100% {
+    background-position: 320px 0;
+  }
+}
+@keyframes sgFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@keyframes sgDash {
+  to {
+    stroke-dashoffset: -64;
+  }
+}
