@@ -24,6 +24,7 @@ const mockOffer = {
   distanceKm: 0.7,
   etaMins: 5,
   expiresAt: new Date(Date.now() + 25_000).toISOString(),
+  vehicleType: null,
 };
 </script>
 

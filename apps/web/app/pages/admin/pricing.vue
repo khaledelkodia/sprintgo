@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { errandPricingSchema, piastersToPounds, poundsToPiasters } from '@sprintgo/shared';
+import { errandPricingSchema, piastersToPounds, poundsToPiasters, TRANSPORT_VEHICLES } from '@sprintgo/shared';
+import type { VehicleType } from '@sprintgo/shared';
 import type { ApiError } from '~/composables/useApi';
 import { useAdmin } from '~/features/admin/composables/useAdmin';
 
@@ -17,6 +18,8 @@ const pending = ref(true);
 const saving = ref(false);
 const form = reactive({ baseFee: '', perKmFee: '', minFee: '', commissionPercent: '', remittanceLimit: '' });
 const errors = reactive<Record<string, string>>({});
+// نقل: percent of the normal fee per vehicle, keyed by type (edited as text)
+const multipliers = reactive<Record<string, string>>({});
 
 async function load() {
   pending.value = true;
@@ -27,6 +30,9 @@ async function load() {
     form.minFee = String(piastersToPounds(p.minFee));
     form.commissionPercent = String(p.commissionPercent);
     form.remittanceLimit = String(piastersToPounds(p.remittanceLimit));
+    for (const v of TRANSPORT_VEHICLES) {
+      multipliers[v.type] = String(p.vehicleMultipliers?.[v.type] ?? v.defaultMultiplier);
+    }
   } catch (err) {
     toast.error((err as ApiError).message);
   } finally {
@@ -55,6 +61,10 @@ async function save() {
   if (!(min >= 0)) errors.minFee = 'اكتب رقم صحيح';
   if (!(commission >= 0 && commission <= 100)) errors.commissionPercent = 'النسبة لازم تكون بين 0 و 100';
   if (!(limit >= 0)) errors.remittanceLimit = 'اكتب رقم صحيح';
+  for (const v of TRANSPORT_VEHICLES) {
+    const m = num(multipliers[v.type] ?? '');
+    if (!(m >= 1 && m <= 5000)) errors[v.type] = 'النسبة لازم تكون بين 1 و 5000';
+  }
   if (Object.keys(errors).length) return;
 
   const dto = {
@@ -63,6 +73,11 @@ async function save() {
     minFee: poundsToPiasters(min),
     commissionPercent: commission,
     remittanceLimit: poundsToPiasters(limit),
+    // نقل: motorcycle is the baseline (100) and is never edited — the rest are multiples of it
+    vehicleMultipliers: {
+      MOTORCYCLE: 100,
+      ...Object.fromEntries(TRANSPORT_VEHICLES.map((v) => [v.type, Math.round(num(multipliers[v.type] ?? ''))])),
+    } as Record<VehicleType, number>,
   };
   const parsed = errandPricingSchema.safeParse(dto);
   if (!parsed.success) {
@@ -113,6 +128,28 @@ async function save() {
             <div class="grid gap-5 sm:grid-cols-2">
               <SgInput v-model="form.commissionPercent" label="نسبة عمولة الإدارة (%)" type="tel" inputmode="numeric" dir="ltr" placeholder="0" hint="حصة الإدارة من كل مشوار (0 - 100)" :error="errors.commissionPercent" />
               <SgInput v-model="form.remittanceLimit" label="حد التوريد قبل القفل (جنيه)" type="tel" inputmode="numeric" dir="ltr" placeholder="0" hint="0 = بلا حد" :error="errors.remittanceLimit" />
+            </div>
+          </div>
+          <!-- نقل: one price formula, a multiplier per vehicle -->
+          <div class="border-t border-line pt-5">
+            <div class="mb-1 text-base font-bold text-ink">أسعار النقل</div>
+            <p class="mb-4 text-sm leading-relaxed text-ink-muted">
+              سعر النقل = سعر المشوار العادي × النسبة دي. يعني التروسيكل بـ 220% = أكتر من الضعف بشوية.
+              الموتوسيكل هو الأساس (100%) وميتغيّرش من هنا.
+            </p>
+            <div class="grid gap-5 sm:grid-cols-3">
+              <SgInput
+                v-for="v in TRANSPORT_VEHICLES"
+                :key="v.type"
+                v-model="multipliers[v.type]"
+                :label="`${v.labelAr} (%)`"
+                type="tel"
+                inputmode="numeric"
+                dir="ltr"
+                placeholder="100"
+                :hint="v.hintAr"
+                :error="errors[v.type]"
+              />
             </div>
           </div>
 

@@ -44,3 +44,11 @@ export type FeePayer = (typeof FEE_PAYERS)[number];
 
 export const USER_STATUSES = ['ACTIVE', 'BLOCKED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
+
+/**
+ * What the trip needs to move. A مشوار defaults to MOTORCYCLE; the نقل services
+ * (عفش / بضاعة) ask for a bigger one, and dispatch only offers the order to a
+ * courier who actually drives it.
+ */
+export const VEHICLE_TYPES = ['MOTORCYCLE', 'TRICYCLE', 'PICKUP', 'TRUCK'] as const;
+export type VehicleType = (typeof VEHICLE_TYPES)[number];

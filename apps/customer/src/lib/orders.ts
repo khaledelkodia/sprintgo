@@ -1,11 +1,26 @@
-import type { CreateErrandDto, ErrandQuoteView, OrderCardView, OrderView, ZoneView } from '@sprintgo/shared';
+import type {
+  CreateErrandDto,
+  ErrandQuoteView,
+  OrderCardView,
+  OrderView,
+  VehicleType,
+  ZoneView,
+} from '@sprintgo/shared';
 import { api } from './api';
 
 /** Delivery zones for the errand pickup/dropoff selectors. */
 export const getZones = () => api<ZoneView[]>('/zones');
 
 /** Live delivery-fee preview for an errand (distance-based). */
-export const getErrandQuote = (params: { zoneId: string; sourceStoreId?: string; lat?: number; lng?: number }) =>
+export const getErrandQuote = (params: {
+  zoneId: string;
+  sourceStoreId?: string;
+  lat?: number;
+  lng?: number;
+  pickupLat?: number;
+  pickupLng?: number;
+  vehicleType?: VehicleType;
+}) =>
   api<ErrandQuoteView>('/errands/quote', { query: params });
 
 /** Create a customer errand (مشوار). Returns the created order — the backend

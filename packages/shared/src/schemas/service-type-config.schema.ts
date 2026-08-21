@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FULFILLMENT_TYPES } from '../enums';
+import { FULFILLMENT_TYPES, VEHICLE_TYPES } from '../enums';
 
 /**
  * Per-vertical behavior switches (docs/architecture/07 §2).
@@ -37,6 +37,8 @@ export const serviceTypeConfigSchema = z
         remittanceLimit: z.number().int().min(0).default(0), // يتقفل المندوب لو المطلوب توريده وصل للحد ده (0 = بلا حد)
         zoneFees: z.record(z.string(), z.number().int()).optional(), // fallback when coordinates are missing
         maxPurchaseBudget: z.number().int().default(200_000),
+        // نقل: نسبة سعر كل عربية من السعر العادي (100 = زي الموتوسيكل بالظبط)
+        vehicleMultipliers: z.record(z.enum(VEHICLE_TYPES), z.number().int().min(1).max(5000)).optional(),
       })
       .optional(),
     ui: z

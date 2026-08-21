@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { FlowType, PrismaClient, Role } from '@prisma/client';
-import { MERCHANT_PERMISSION_KEYS, serviceTypeConfigSchema } from '@sprintgo/shared';
+import { defaultVehicleMultipliers, MERCHANT_PERMISSION_KEYS, serviceTypeConfigSchema } from '@sprintgo/shared';
 import { hashPassword } from '../src/modules/auth/password';
 
 const prisma = new PrismaClient();
@@ -98,6 +98,8 @@ async function seedServiceTypes() {
           commissionPercent: 15, // الإدارة تاخد 15% من رسوم التوصيل
           remittanceLimit: 20000, // يتقفل المندوب لو المطلوب توريده وصل 200ج
           maxPurchaseBudget: 200_000,
+          // نقل: سعر كل عربية كنسبة من السعر العادي (تروسيكل 220% وهكذا)
+          vehicleMultipliers: defaultVehicleMultipliers(),
         },
         ui: { icon: 'bike' },
       },
@@ -161,8 +163,27 @@ async function seedUsers() {
   });
   await prisma.courierProfile.upsert({
     where: { userId: courier2.id },
-    update: { isAvailable: true, lat: 30.0511, lng: 31.3656, lastLocationAt: new Date() },
-    create: { userId: courier2.id, isAvailable: true, lat: 30.0511, lng: 31.3656, lastLocationAt: new Date() },
+    update: { isAvailable: true, vehicleType: 'TRICYCLE', lat: 30.0511, lng: 31.3656, lastLocationAt: new Date() },
+    create: { userId: courier2.id, isAvailable: true, vehicleType: 'TRICYCLE', lat: 30.0511, lng: 31.3656, lastLocationAt: new Date() },
+  });
+
+  // a نقل driver — نص نقل. Without one, a furniture order has nobody to go to.
+  const courier3 = await prisma.user.upsert({
+    where: { phone: '+201000000005' },
+    update: { roles: [Role.CUSTOMER, Role.COURIER] },
+    create: { phone: '+201000000005', name: 'محمود النقل', roles: [Role.CUSTOMER, Role.COURIER] },
+  });
+  await prisma.courierProfile.upsert({
+    where: { userId: courier3.id },
+    update: { isAvailable: true, vehicleType: 'PICKUP', lat: 29.9602, lng: 31.2580, lastLocationAt: new Date() },
+    create: {
+      userId: courier3.id,
+      isAvailable: true,
+      vehicleType: 'PICKUP',
+      lat: 29.9602,
+      lng: 31.2580,
+      lastLocationAt: new Date(),
+    },
   });
 
   return { admin, merchant, courier };

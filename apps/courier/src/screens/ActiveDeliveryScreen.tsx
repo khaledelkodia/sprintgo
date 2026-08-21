@@ -1,6 +1,7 @@
 import type { CourierTaskView } from '@sprintgo/shared';
-import { formatMoney, poundsToPiasters } from '@sprintgo/shared';
-import { Banknote, Check, ChevronRight, MapPin, Phone, ShoppingBasket } from 'lucide-react';
+import { formatMoney, poundsToPiasters, vehicleLabel } from '@sprintgo/shared';
+import { Banknote, Check, ChevronRight, MapPin, Phone, ShoppingBasket, Truck } from 'lucide-react';
+import { MapLink } from '../components/MapLink';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { enterGoodsCost, getTasks, markDelivered, pickupTask } from '../lib/courier';
@@ -117,6 +118,24 @@ export function ActiveDeliveryScreen() {
 
         <div style={{ fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{stepKicker}</div>
         <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{stepTitle}</div>
+        {task.vehicleType && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              marginTop: 10,
+              background: '#EDE9FE',
+              color: '#5B21B6',
+              borderRadius: 999,
+              padding: '7px 14px',
+              fontSize: 14,
+              fontWeight: 800,
+            }}
+          >
+            <Truck size={17} strokeWidth={1.9} /> {vehicleLabel(task.vehicleType)}
+          </div>
+        )}
 
         {/* what to bring / where to deliver */}
         {!pickedUp ? (
@@ -131,6 +150,17 @@ export function ActiveDeliveryScreen() {
                 <div style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', lineHeight: 1.5 }}>{task.instructions || '—'}</div>
               </div>
             </div>
+
+            {/* where to pick up — the pin turns into real directions */}
+            {(hasPickupPlace || task.pickup?.lat != null) && (
+              <div className="sg-card" style={{ padding: 18, marginTop: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', marginBottom: 4 }}>مكان الاستلام</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', lineHeight: 1.5 }}>
+                  {pickupPlace || 'المكان اللي حدده العميل على الخريطة'}
+                </div>
+                <MapLink lat={task.pickup?.lat} lng={task.pickup?.lng} label="روح لمكان الاستلام" />
+              </div>
+            )}
 
             {/* purchase errand → record what it cost */}
             {isErrand && (
@@ -171,6 +201,7 @@ export function ActiveDeliveryScreen() {
                   <Phone size={22} strokeWidth={1.75} />
                 </a>
               )}
+              <MapLink lat={task.dropoff?.lat} lng={task.dropoff?.lng} label="افتح خريطة التسليم" compact />
             </div>
 
             {/* what they ordered, for reference */}

@@ -1,4 +1,15 @@
-import type { ApiSuccess, CourierDailyReportRow, CreateStoreDto, CreateZoneDto, DriverSettlementRow, ErrandPricingDto, StoreListingType, UpsertProductDto, ZoneAdminRow } from '@sprintgo/shared';
+import type {
+  ApiSuccess,
+  CourierDailyReportRow,
+  CreateStoreDto,
+  CreateZoneDto,
+  DriverSettlementRow,
+  ErrandPricingDto,
+  StoreListingType,
+  UpsertProductDto,
+  VehicleType,
+  ZoneAdminRow,
+} from '@sprintgo/shared';
 import { extractApiError, useApi } from '~/composables/useApi';
 
 export interface AdminStoreRow {
@@ -42,6 +53,7 @@ export interface AdminDriver {
   status: string;
   isAvailable: boolean;
   totalDeliveries: number;
+  vehicleType: VehicleType;
 }
 
 /** Errand pricing + platform commission. Fees in piastres; commissionPercent 0–100; remittanceLimit 0 = بلا حد. */
@@ -51,6 +63,8 @@ export interface ErrandPricing {
   minFee: number;
   commissionPercent: number;
   remittanceLimit: number;
+  /** نقل: percent of the normal fee per vehicle (100 = same as a motorcycle) */
+  vehicleMultipliers: Record<VehicleType, number>;
 }
 
 export function useAdmin() {
@@ -87,8 +101,11 @@ export function useAdmin() {
 
   // drivers
   const listDrivers = () => api<ApiSuccess<AdminDriver[]>>('/admin/drivers').then((r) => r.data);
-  const createDriver = (body: { name: string; phone: string }) =>
+  const createDriver = (body: { name: string; phone: string; vehicleType: VehicleType }) =>
     wrap(() => api<ApiSuccess<AdminDriver>>('/admin/drivers', { method: 'POST', body }).then((r) => r.data));
+  /** Change what an existing courier drives — نقل jobs only reach the matching vehicle. */
+  const setDriverVehicle = (id: string, vehicleType: VehicleType) =>
+    wrap(() => api(`/admin/drivers/${id}/vehicle`, { method: 'PATCH', body: { vehicleType } }));
 
   // driver settlements — balance owed to the platform, cash hand-ins, suspend / reactivate
   const driverSettlements = () =>
@@ -130,6 +147,7 @@ export function useAdmin() {
     deleteProduct,
     listDrivers,
     createDriver,
+    setDriverVehicle,
     driverSettlements,
     driverReport,
     recordRemittance,

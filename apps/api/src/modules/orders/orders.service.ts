@@ -265,5 +265,8 @@ function snapshotOf(address: Address & { zone: Zone }): AddressSnapshot {
     apartment: address.apartment,
     landmark: address.landmark,
     contactPhone: address.contactPhone,
+    // the saved pin travels with the order so the courier can open the map
+    lat: address.lat == null ? null : Number(address.lat),
+    lng: address.lng == null ? null : Number(address.lng),
   };
 }

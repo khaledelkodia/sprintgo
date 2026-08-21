@@ -1,15 +1,17 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bike, Package, Repeat, ShoppingBag, Sofa, Store, Wrench, Zap } from 'lucide-react';
+import { Bike, Boxes, Package, Repeat, ShoppingBag, Sofa, Store, Wrench, Zap } from 'lucide-react';
+import type { VehicleType } from '@sprintgo/shared';
 
 /**
  * The SprintGo service catalog. Each tile maps to ONE of the app's real engines
  * so a tap does what the service actually means — never the same generic form:
  *  - errand-buy : "اشتري لي" (write it, courier buys it)         → /order?mode=buy
  *  - errand-send: "وصّل من مكان لمكان" (a parcel, no purchase)     → /order?mode=send
+ *  - transport  : نقل عفش/بضاعة — same trip, bigger vehicle          → /order?mode=transport
  *  - catalog    : browse partner stores and order products        → /stores
  *  - soon       : a real idea we haven't launched yet             → /soon (honest)
  */
-export type ServiceKind = 'errand-buy' | 'errand-send' | 'catalog' | 'soon';
+export type ServiceKind = 'errand-buy' | 'errand-send' | 'transport' | 'catalog' | 'soon';
 
 export interface ServiceDef {
   id: string;
@@ -21,6 +23,8 @@ export interface ServiceDef {
   /** longer description on the Services list */
   desc: string;
   color: string;
+  /** نقل: the vehicle this tile books (the customer can still change it) */
+  vehicle?: VehicleType;
   /** 145deg gradient pair for the icon tile */
   grad: [string, string];
 }
@@ -78,13 +82,25 @@ export const SERVICES: ServiceDef[] = [
   },
   {
     id: 'furniture',
-    kind: 'soon',
+    kind: 'transport',
     icon: Sofa,
-    title: 'نقل أثاث',
-    blurb: 'شاحنة مع عمّال — قريبًا',
-    desc: 'شاحنة وعمّال لنقل العفش — بنجهّزها',
+    vehicle: 'PICKUP',
+    title: 'نقل عفش',
+    blurb: 'نص نقل أو عربية نقل',
+    desc: 'نقل عفش الشقة أو الأوضة — تختار العربية والسعر يبان قبل ما تأكد',
     color: '#7C3AED',
     grad: ['#EDE9FE', '#F5F3FF'],
+  },
+  {
+    id: 'goods',
+    kind: 'transport',
+    icon: Boxes,
+    vehicle: 'TRICYCLE',
+    title: 'نقل بضاعة',
+    blurb: 'تروسيكل للكراتين والأجهزة',
+    desc: 'كراتين، أجهزة، بضاعة محل — تروسيكل أو أكبر على حسب الحمولة',
+    color: '#0369A1',
+    grad: ['#E0F2FE', '#F0F9FF'],
   },
   {
     id: 'home-services',
@@ -115,6 +131,8 @@ export function serviceRoute(s: ServiceDef): string {
       return '/order?mode=buy';
     case 'errand-send':
       return '/order?mode=send';
+    case 'transport':
+      return `/order?mode=transport&v=${s.vehicle ?? 'TRICYCLE'}`;
     case 'catalog':
       return '/stores';
     case 'soon':

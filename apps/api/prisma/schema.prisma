@@ -99,6 +99,15 @@ enum DevicePlatform {
   ANDROID
 }
 
+/// What a trip needs to move it. Couriers declare one; a نقل order requires one,
+/// and dispatch only offers that order to couriers driving it.
+enum VehicleType {
+  MOTORCYCLE
+  TRICYCLE
+  PICKUP
+  TRUCK
+}
+
 // ─────────────────────── Identity ───────────────────────
 
 model User {
@@ -437,6 +446,8 @@ model Order {
   zoneId           String?         @map("zone_id")
   status           OrderStatus     @default(PLACED)
   fulfillmentType  FulfillmentType @default(DELIVERY) @map("fulfillment_type")
+  // نقل: the vehicle this job needs. null = مشوار عادي (any courier).
+  vehicleType      VehicleType?    @map("vehicle_type")
   paymentMethod    PaymentMethod   @default(COD) @map("payment_method")
   paymentStatus    PaymentStatus   @default(PENDING) @map("payment_status")
   addressSnapshot  Json?           @map("address_snapshot")
@@ -517,6 +528,9 @@ model ErrandDetail {
   orderId         String   @unique @map("order_id")
   pickupText      String?  @map("pickup_text")
   pickupZoneId    String?  @map("pickup_zone_id")
+  // the exact pickup pin when the customer shared it — the courier navigates to it
+  pickupLat       Decimal? @map("pickup_lat") @db.Decimal(10, 7)
+  pickupLng       Decimal? @map("pickup_lng") @db.Decimal(10, 7)
   instructions    String
   recipientName   String?  @map("recipient_name")
   recipientPhone  String?  @map("recipient_phone")
@@ -550,7 +564,8 @@ model CourierRemittance {
 model CourierProfile {
   id             String    @id @default(cuid())
   userId         String    @unique @map("user_id")
-  isAvailable    Boolean   @default(false) @map("is_available")
+  isAvailable    Boolean     @default(false) @map("is_available")
+  vehicleType    VehicleType @default(MOTORCYCLE) @map("vehicle_type")
   lat            Decimal?  @db.Decimal(10, 7)
   lng            Decimal?  @db.Decimal(10, 7)
   lastLocationAt DateTime? @map("last_location_at")

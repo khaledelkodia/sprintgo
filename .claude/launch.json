@@ -8,10 +8,16 @@
       "port": 3000
     },
     {
-      "name": "design-ar-preview",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["C:/Users/KHALED~1/AppData/Local/Temp/claude/D--SprintGo/61131fa7-4453-4f09-9f02-62fca37f29c0/scratchpad/ar/serve.mjs"],
-      "port": 5599
+      "name": "customer",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@sprintgo/customer", "dev"],
+      "port": 5175
+    },
+    {
+      "name": "courier",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@sprintgo/courier", "dev"],
+      "port": 5176
     }
   ]
 }

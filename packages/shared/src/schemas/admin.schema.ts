@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VEHICLE_TYPES } from '../enums';
 import { phoneInputSchema } from './auth.schema';
 
 const storeZoneInput = z.object({
@@ -68,6 +69,8 @@ export type AdminUpdateStoreDto = z.infer<typeof adminUpdateStoreSchema>;
 export const createDriverSchema = z
   .object({
     name: z.string().trim().min(2, 'اكتب اسم السائق').max(60),
+    /** what they drive — dispatch only offers a نقل job to the right vehicle */
+    vehicleType: z.enum(VEHICLE_TYPES).default('MOTORCYCLE'),
     phone: phoneInputSchema,
   })
   .strict();
@@ -105,3 +108,7 @@ export const passwordLoginSchema = z
   })
   .strict();
 export type PasswordLoginDto = z.infer<typeof passwordLoginSchema>;
+
+/** Admin changes what an existing courier drives. */
+export const updateDriverVehicleSchema = z.object({ vehicleType: z.enum(VEHICLE_TYPES) }).strict();
+export type UpdateDriverVehicleDto = z.infer<typeof updateDriverVehicleSchema>;

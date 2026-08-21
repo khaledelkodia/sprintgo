@@ -1,6 +1,7 @@
 import type {
   CourierDailyReportRow,
   CourierOfferView,
+  CourierProfileView,
   CourierSummaryView,
   CourierTaskView,
   CourierWalletView,
@@ -33,3 +34,6 @@ export const getWallet = () => api<CourierWalletView>('/courier/wallet');
 /** Daily report: last 7 days by default, or a specific month (YYYY-MM). */
 export const getReport = (month?: string) =>
   api<CourierDailyReportRow[]>('/courier/report', { query: month ? { month } : undefined });
+
+/** The courier's own registration — which vehicle they are listed for. */
+export const getMe = () => api<CourierProfileView>('/courier/me');

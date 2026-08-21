@@ -1,4 +1,5 @@
 export * from './enums';
+export * from './vehicles';
 export * from './permissions';
 export * from './error-codes';
 export * from './transitions';

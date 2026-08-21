@@ -25,6 +25,12 @@ import { DeliveryService } from './delivery.service';
 export class CourierController {
   constructor(private readonly delivery: DeliveryService) {}
 
+  /** The courier's own registration — mainly: which vehicle they are listed for. */
+  @Get('me')
+  me(@CurrentUser() user: AuthUser) {
+    return this.delivery.courierProfile(user.id);
+  }
+
   @Patch('availability')
   setAvailability(
     @CurrentUser() user: AuthUser,

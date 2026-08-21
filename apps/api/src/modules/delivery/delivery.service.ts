@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { distanceKm, RT_EVENTS, rtRooms, serviceTypeConfigSchema, travelEtaMins } from '@sprintgo/shared';
 import type {
+  AddressSnapshot,
   CourierDailyReportRow,
   CourierListItemView,
+  CourierProfileView,
   CourierSuggestionView,
   CourierSummaryView,
   CourierTaskView,
@@ -11,6 +13,7 @@ import type {
   DispatchItemView,
   DriverSettlementRow,
   OrderView,
+  VehicleType,
 } from '@sprintgo/shared';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { RealtimeService } from '../../core/realtime/realtime.service';
@@ -128,31 +131,46 @@ export class DeliveryService {
         name: c.name,
         phone: c.phone,
         isAvailable: c.courierProfile?.isAvailable ?? false,
+        vehicleType: c.courierProfile?.vehicleType ?? 'MOTORCYCLE',
         activeTasks: c.deliveries.length,
       }));
-  }
 
-  /** Resolve where the courier should pick up: store → errand pickup zone → dropoff zone. */
-  private async pickupLocationFor(orderId: string): Promise<{ lat: number; lng: number } | null> {
+  }
+  /**
+   * What dispatch needs to know about an order: where the pickup is (store →
+   * errand pin → pickup zone → dropoff zone) and which vehicle it requires.
+   */
+  private async dispatchContextFor(
+    orderId: string,
+  ): Promise<{ pickup: { lat: number; lng: number } | null; vehicleType: VehicleType | null }> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { store: true, zone: true, errandDetail: { include: { pickupZone: true } } },
     });
-    if (!order) return null;
+    if (!order) return { pickup: null, vehicleType: null };
     const pick = (lat: Prisma.Decimal | null, lng: Prisma.Decimal | null) =>
       lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null;
-    return (
+    const pickup =
       pick(order.store?.lat ?? null, order.store?.lng ?? null) ??
+      pick(order.errandDetail?.pickupLat ?? null, order.errandDetail?.pickupLng ?? null) ??
       pick(order.errandDetail?.pickupZone?.lat ?? null, order.errandDetail?.pickupZone?.lng ?? null) ??
-      pick(order.zone?.lat ?? null, order.zone?.lng ?? null)
-    );
+      pick(order.zone?.lat ?? null, order.zone?.lng ?? null);
+    return { pickup, vehicleType: order.vehicleType };
   }
 
-  /** Available couriers ranked by distance to the order's pickup (nearest first). */
+  /**
+   * Available couriers ranked by distance to the order's pickup (nearest first).
+   * A نقل order (vehicleType set) only ever reaches couriers driving that exact
+   * vehicle — a موتوسيكل can't carry a شقة, and the fare was priced for the truck.
+   */
   async suggestCouriers(orderId: string): Promise<CourierSuggestionView[]> {
-    const pickup = await this.pickupLocationFor(orderId);
+    const { pickup, vehicleType } = await this.dispatchContextFor(orderId);
     const couriers = await this.prisma.user.findMany({
-      where: { roles: { has: 'COURIER' }, status: 'ACTIVE', courierProfile: { isAvailable: true } },
+      where: {
+        roles: { has: 'COURIER' },
+        status: 'ACTIVE',
+        courierProfile: { isAvailable: true, ...(vehicleType ? { vehicleType } : {}) },
+      },
       include: {
         courierProfile: true,
         deliveries: { where: { status: { in: ['ASSIGNED', 'PICKED_UP'] } }, select: { id: true } },
@@ -167,7 +185,15 @@ export class DeliveryService {
         dist = Math.round(distanceKm(pickup.lat, pickup.lng, Number(p.lat), Number(p.lng)) * 10) / 10;
         eta = travelEtaMins(dist);
       }
-      return { id: c.id, name: c.name, phone: c.phone, activeTasks: c.deliveries.length, distanceKm: dist, etaMins: eta };
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        activeTasks: c.deliveries.length,
+        distanceKm: dist,
+        etaMins: eta,
+        vehicleType: p?.vehicleType ?? 'MOTORCYCLE',
+      };
     });
 
     // located couriers first (nearest, then lightest load); un-located couriers last
@@ -277,6 +303,7 @@ export class DeliveryService {
       distanceKm,
       etaMins,
       expiresAt: expiresAt.toISOString(),
+      vehicleType: order.vehicleType,
     };
   }
 
@@ -409,6 +436,21 @@ export class DeliveryService {
 
   // ─────────────── Courier app ───────────────
 
+  /** The courier's own registration row — what they drive and whether they are online. */
+  async courierProfile(courierId: string): Promise<CourierProfileView> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: courierId },
+      select: { name: true, phone: true, courierProfile: true },
+    });
+    if (!user) throw new DomainException('NOT_FOUND', 'المندوب مش موجود');
+    return {
+      name: user.name,
+      phone: user.phone,
+      vehicleType: user.courierProfile?.vehicleType ?? 'MOTORCYCLE',
+      isAvailable: user.courierProfile?.isAvailable ?? false,
+    };
+  }
+
   async setAvailability(courierId: string, isAvailable: boolean): Promise<{ isAvailable: boolean }> {
     if (isAvailable) await this.assertCanWork(courierId); // can't go online while blocked / owing dues
     await this.prisma.courierProfile.upsert({
@@ -477,7 +519,7 @@ export class DeliveryService {
 
   private toTaskView(r: TaskRow): CourierTaskView {
     const o = r.order;
-    const snap = o.addressSnapshot as Record<string, string | null> | null;
+    const snap = o.addressSnapshot as AddressSnapshot | null;
     const isErrand = o.serviceType.flowType === 'ERRAND';
     const cashToCollect = isErrand ? (o.errandDetail?.codToCollect ?? 0) : o.paymentMethod === 'COD' ? o.total : 0;
 
@@ -488,9 +530,21 @@ export class DeliveryService {
       assignmentStatus: r.status as 'ASSIGNED' | 'PICKED_UP',
       flowType: o.serviceType.flowType,
       pickup: o.store
-        ? { name: o.store.name, phone: o.store.contactPhone, text: o.store.addressText }
+        ? {
+            name: o.store.name,
+            phone: o.store.contactPhone,
+            text: o.store.addressText,
+            lat: o.store.lat == null ? null : Number(o.store.lat),
+            lng: o.store.lng == null ? null : Number(o.store.lng),
+          }
         : o.errandDetail
-          ? { name: 'نقطة الاستلام', phone: '', text: o.errandDetail.pickupText }
+          ? {
+              name: 'نقطة الاستلام',
+              phone: '',
+              text: o.errandDetail.pickupText,
+              lat: o.errandDetail.pickupLat == null ? null : Number(o.errandDetail.pickupLat),
+              lng: o.errandDetail.pickupLng == null ? null : Number(o.errandDetail.pickupLng),
+            }
           : null,
       dropoff: snap
         ? {
@@ -499,12 +553,15 @@ export class DeliveryService {
             zoneName: snap.zoneName ?? '',
             street: snap.street ?? '',
             landmark: snap.landmark ?? null,
+            lat: snap.lat ?? null,
+            lng: snap.lng ?? null,
           }
         : null,
       cashToCollect,
       purchaseBudget: o.errandDetail?.purchaseBudget ?? null,
       instructions: o.errandDetail?.instructions ?? o.customerNotes,
       assignedAt: r.assignedAt.toISOString(),
+      vehicleType: o.vehicleType,
     };
   }
 
@@ -748,6 +805,7 @@ export class DeliveryService {
         phone: c.phone,
         status: c.status,
         isAvailable: c.courierProfile?.isAvailable ?? false,
+        vehicleType: c.courierProfile?.vehicleType ?? 'MOTORCYCLE',
         deliveries: delivered.length,
         earnings,
         balanceDue: Math.max(0, balanceDue - totalRemitted),

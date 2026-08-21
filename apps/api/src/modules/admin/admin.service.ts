@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import { MERCHANT_PERMISSION_KEYS, sanitizeMerchantPermissions, serviceTypeConfigSchema } from '@sprintgo/shared';
+import {
+  defaultVehicleMultipliers,
+  MERCHANT_PERMISSION_KEYS,
+  sanitizeMerchantPermissions,
+  serviceTypeConfigSchema,
+} from '@sprintgo/shared';
 import type {
   AdminUpdateStoreDto,
   CreateDriverDto,
@@ -8,6 +13,7 @@ import type {
   CreateZoneDto,
   ErrandPricingDto,
   UpdateZoneDto,
+  VehicleType,
 } from '@sprintgo/shared';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { DomainException } from '../../common/errors/domain.exception';
@@ -160,8 +166,8 @@ export class AdminService {
     });
     await this.prisma.courierProfile.upsert({
       where: { userId: driver.id },
-      update: {},
-      create: { userId: driver.id, isAvailable: false },
+      update: { vehicleType: dto.vehicleType },
+      create: { userId: driver.id, isAvailable: false, vehicleType: dto.vehicleType },
     });
     return { id: driver.id, phone: driver.phone, name: driver.name };
   }
@@ -178,6 +184,21 @@ export class AdminService {
       await this.prisma.courierProfile.updateMany({ where: { userId: id }, data: { isAvailable: false } });
     }
     return { id: user.id, status: user.status };
+  }
+
+  /** Change what a courier drives — this is what makes نقل jobs reach them. */
+  async setDriverVehicle(id: string, vehicleType: VehicleType) {
+    const driver = await this.prisma.user.findFirst({
+      where: { id, roles: { has: Role.COURIER } },
+      select: { id: true },
+    });
+    if (!driver) throw new DomainException('NOT_FOUND', 'المندوب مش موجود');
+    const profile = await this.prisma.courierProfile.upsert({
+      where: { userId: id },
+      update: { vehicleType },
+      create: { userId: id, isAvailable: false, vehicleType },
+    });
+    return { id, vehicleType: profile.vehicleType };
   }
 
   // ─────────────── Errand pricing + commission (platform settings) ───────────────
@@ -201,6 +222,8 @@ export class AdminService {
       minFee: e?.minFee ?? 0,
       commissionPercent: e?.commissionPercent ?? 0,
       remittanceLimit: e?.remittanceLimit ?? 0,
+      // the نقل price table — always complete, so the admin form never renders a blank row
+      vehicleMultipliers: { ...defaultVehicleMultipliers(), ...(e?.vehicleMultipliers ?? {}) },
     };
   }
 
@@ -226,6 +249,7 @@ export class AdminService {
       status: d.status,
       isAvailable: d.courierProfile?.isAvailable ?? false,
       totalDeliveries: d._count.deliveries,
+      vehicleType: d.courierProfile?.vehicleType ?? 'MOTORCYCLE',
     }));
   }
 

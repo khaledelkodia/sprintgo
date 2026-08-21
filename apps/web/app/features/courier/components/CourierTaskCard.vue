@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { displayPhone, formatMoney } from '@sprintgo/shared';
+import { displayPhone, formatMoney, vehicleLabel } from '@sprintgo/shared';
 import type { CourierTaskView } from '@sprintgo/shared';
 
 defineProps<{ task: CourierTaskView; busy?: boolean }>();
+
+/** A pin becomes turn-by-turn directions; no pin, no button. */
+const mapUrl = (lat: number | null, lng: number | null) =>
+  lat == null || lng == null ? null : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 defineEmits<{ pickup: []; delivered: []; goodsCost: [] }>();
 </script>
 
@@ -11,12 +15,17 @@ defineEmits<{ pickup: []; delivered: []; goodsCost: [] }>();
     <div class="flex flex-col gap-4">
       <div class="flex items-center justify-between">
         <span class="text-base font-bold text-ink">{{ task.code }}</span>
-        <span
-          class="rounded-full px-3 py-1 text-sm font-semibold"
-          :class="task.flowType === 'ERRAND' ? 'bg-info-600/10 text-info-600' : 'bg-primary-50 text-primary-700'"
-        >
-          {{ task.flowType === 'ERRAND' ? 'مشوار' : 'توصيل طلب' }}
-        </span>
+        <div class="flex items-center gap-2">
+          <span
+            class="rounded-full px-3 py-1 text-sm font-semibold"
+            :class="task.flowType === 'ERRAND' ? 'bg-info-600/10 text-info-600' : 'bg-primary-50 text-primary-700'"
+          >
+            {{ task.flowType === 'ERRAND' ? 'مشوار' : 'توصيل طلب' }}
+          </span>
+          <span v-if="task.vehicleType" class="rounded-full bg-surface-alt px-3 py-1 text-sm font-bold text-ink">
+            {{ vehicleLabel(task.vehicleType) }}
+          </span>
+        </div>
       </div>
 
       <!-- pickup -->
@@ -31,6 +40,16 @@ defineEmits<{ pickup: []; delivered: []; goodsCost: [] }>();
         </div>
         <a v-if="task.pickup.phone" :href="`tel:${task.pickup.phone}`" class="flex size-10 items-center justify-center rounded-full bg-primary-600 text-white" aria-label="اتصل">
           <SgIcon name="phone" :size="18" />
+        </a>
+        <a
+          v-if="mapUrl(task.pickup.lat, task.pickup.lng)"
+          :href="mapUrl(task.pickup.lat, task.pickup.lng)!"
+          target="_blank"
+          rel="noreferrer"
+          class="flex size-10 items-center justify-center rounded-full bg-success-600 text-white"
+          aria-label="افتح الخريطة"
+        >
+          <SgIcon name="map-pin" :size="18" />
         </a>
       </div>
 
@@ -47,6 +66,16 @@ defineEmits<{ pickup: []; delivered: []; goodsCost: [] }>();
         </div>
         <a v-if="task.dropoff.phone" :href="`tel:${task.dropoff.phone}`" class="flex size-10 items-center justify-center rounded-full bg-primary-600 text-white" aria-label="اتصل">
           <SgIcon name="phone" :size="18" />
+        </a>
+        <a
+          v-if="mapUrl(task.dropoff.lat, task.dropoff.lng)"
+          :href="mapUrl(task.dropoff.lat, task.dropoff.lng)!"
+          target="_blank"
+          rel="noreferrer"
+          class="flex size-10 items-center justify-center rounded-full bg-success-600 text-white"
+          aria-label="افتح الخريطة"
+        >
+          <SgIcon name="map-pin" :size="18" />
         </a>
       </div>
 

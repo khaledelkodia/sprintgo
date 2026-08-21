@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { displayPhone, formatMoney, isValidEgyptianPhone, poundsToPiasters, recordRemittanceSchema } from '@sprintgo/shared';
-import type { CourierDailyReportRow, DriverSettlementRow } from '@sprintgo/shared';
+import {
+  displayPhone,
+  formatMoney,
+  isValidEgyptianPhone,
+  poundsToPiasters,
+  recordRemittanceSchema,
+  VEHICLES,
+} from '@sprintgo/shared';
+import type { CourierDailyReportRow, DriverSettlementRow, VehicleType } from '@sprintgo/shared';
 import type { ApiError } from '~/composables/useApi';
 import { useAdmin } from '~/features/admin/composables/useAdmin';
 import { useAuthStore } from '~/features/auth/stores/auth.store';
@@ -40,12 +47,13 @@ function fmtDate(iso: string | null) {
 
 // ── add a new driver ──────────────────────────────────────────────
 const addOpen = ref(false);
-const addForm = reactive({ name: '', phone: '' });
+const addForm = reactive({ name: '', phone: '', vehicleType: 'MOTORCYCLE' as VehicleType });
 const adding = ref(false);
 const canAdd = computed(() => addForm.name.trim().length >= 2 && isValidEgyptianPhone(addForm.phone));
 
 function openAdd() {
   addForm.name = '';
+  addForm.vehicleType = 'MOTORCYCLE';
   addForm.phone = '';
   addOpen.value = true;
 }
@@ -54,7 +62,7 @@ async function addDriver() {
   if (!canAdd.value || adding.value) return;
   adding.value = true;
   try {
-    await admin.createDriver({ name: addForm.name.trim(), phone: addForm.phone.trim() });
+    await admin.createDriver({ name: addForm.name.trim(), phone: addForm.phone.trim(), vehicleType: addForm.vehicleType });
     toast.success('اتضاف السائق');
     addOpen.value = false;
     await load();
@@ -62,6 +70,20 @@ async function addDriver() {
     toast.error((err as ApiError).message);
   } finally {
     adding.value = false;
+  }
+}
+
+/** Change what a courier drives — نقل orders only reach the matching vehicle. */
+async function changeVehicle(d: DriverSettlementRow, vehicleType: VehicleType) {
+  if (d.vehicleType === vehicleType) return;
+  const previous = d.vehicleType;
+  d.vehicleType = vehicleType; // optimistic — the select already moved
+  try {
+    await admin.setDriverVehicle(d.id, vehicleType);
+    toast.success(`${d.name ?? 'المندوب'} بقى على ${VEHICLES.find((v) => v.type === vehicleType)?.labelAr}`);
+  } catch (err) {
+    d.vehicleType = previous;
+    toast.error((err as ApiError).message);
   }
 }
 
@@ -208,6 +230,7 @@ function selectReportMonth(month: string | null) {
               <tr class="border-b border-line text-sm text-ink-soft">
                 <th class="px-5 py-3 text-start font-semibold">المندوب</th>
                 <th class="px-5 py-3 text-start font-semibold">الرقم</th>
+                <th class="px-5 py-3 text-start font-semibold">العربية</th>
                 <th class="px-5 py-3 text-start font-semibold">الحالة</th>
                 <th class="px-5 py-3 text-start font-semibold">التوصيلات</th>
                 <th class="px-5 py-3 text-start font-semibold">المطلوب توريده</th>
@@ -229,6 +252,15 @@ function selectReportMonth(month: string | null) {
                   </div>
                 </td>
                 <td class="px-5 py-3.5" dir="ltr"><span class="text-ink-soft">{{ displayPhone(d.phone) }}</span></td>
+                <td class="px-5 py-3.5">
+                  <select
+                    class="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm font-bold text-ink"
+                    :value="d.vehicleType"
+                    @change="changeVehicle(d, ($event.target as HTMLSelectElement).value as VehicleType)"
+                  >
+                    <option v-for="v in VEHICLES" :key="v.type" :value="v.type">{{ v.labelAr }}</option>
+                  </select>
+                </td>
                 <td class="px-5 py-3.5">
                   <span
                     class="rounded-full px-3 py-1 text-xs font-bold"
@@ -350,6 +382,23 @@ function selectReportMonth(month: string | null) {
       <div class="flex flex-col gap-4">
         <SgInput v-model="addForm.name" label="اسم السائق" placeholder="الاسم" />
         <SgInput v-model="addForm.phone" label="رقم الموبايل" type="tel" inputmode="tel" dir="ltr" placeholder="01XXXXXXXXX" hint="بيدخل بالكود على الموبايل (بدون باسورد)" />
+        <div>
+          <label class="mb-2 block text-sm font-bold text-ink-soft">بيسوق إيه؟</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              v-for="v in VEHICLES"
+              :key="v.type"
+              type="button"
+              class="rounded-xl border px-3 py-2.5 text-start transition-colors"
+              :class="addForm.vehicleType === v.type ? 'border-primary-600 bg-primary-50' : 'border-line hover:bg-surface-alt'"
+              @click="addForm.vehicleType = v.type"
+            >
+              <span class="block text-sm font-bold text-ink">{{ v.labelAr }}</span>
+              <span class="block text-xs text-ink-muted">{{ v.hintAr }}</span>
+            </button>
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-ink-muted">طلبات النقل بتروح للسواق اللي معاه العربية المطلوبة بس.</p>
+        </div>
         <SgButton size="xl" block :loading="adding" :disabled="!canAdd" @click="addDriver">إضافة السائق</SgButton>
       </div>
     </SgSheet>

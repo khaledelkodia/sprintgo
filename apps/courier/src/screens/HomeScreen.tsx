@@ -1,10 +1,10 @@
-import type { CourierSummaryView, CourierTaskView, CourierWalletView } from '@sprintgo/shared';
-import { formatMoney } from '@sprintgo/shared';
-import { AlertTriangle, Banknote, Navigation, Package, Power, Wallet, Zap } from 'lucide-react';
+import type { CourierProfileView, CourierSummaryView, CourierTaskView, CourierWalletView } from '@sprintgo/shared';
+import { formatMoney, vehicleLabel } from '@sprintgo/shared';
+import { AlertTriangle, Banknote, Navigation, Package, Power, Truck, Wallet, Zap } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { getOffer, getSummary, getTasks, getWallet, setAvailability } from '../lib/courier';
+import { getMe, getOffer, getSummary, getTasks, getWallet, setAvailability } from '../lib/courier';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -21,6 +21,7 @@ export function HomeScreen() {
   const [summary, setSummary] = useState<CourierSummaryView | null>(null);
   const [wallet, setWallet] = useState<CourierWalletView | null>(null);
   const [task, setTask] = useState<CourierTaskView | null>(null);
+  const [me, setMe] = useState<CourierProfileView | null>(null);
   const poll = useRef<ReturnType<typeof setInterval>>();
 
   function loadWallet() {
@@ -33,6 +34,7 @@ export function HomeScreen() {
   }
   useEffect(() => {
     getSummary().then(setSummary).catch(() => {});
+    getMe().then(setMe).catch(() => {});
     getTasks().then((t) => setTask(t[0] ?? null)).catch(() => {});
     loadWallet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,6 +105,24 @@ export function HomeScreen() {
         <div style={{ fontSize: 14, color: '#64748B', marginTop: 6 }}>
           {blocked ? 'حسابك متوقّف مؤقتًا' : online ? 'أنت متصل — جاهز للطلبات' : 'ابدأ الوردية عشان تستقبل طلبات'}
         </div>
+        {me && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              marginTop: 10,
+              background: '#F1F5F9',
+              color: '#334155',
+              borderRadius: 999,
+              padding: '7px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
+            <Truck size={16} strokeWidth={1.9} /> مسجّل بـ {vehicleLabel(me.vehicleType)}
+          </div>
+        )}
       </div>
 
       {/* remittance block banner */}

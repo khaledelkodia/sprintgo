@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VEHICLE_TYPES } from '../enums';
 
 /** Drop-off is either a saved address OR a typed destination (مشوار — ADR-010). */
 const dropoffSchema = z
@@ -10,7 +11,7 @@ const dropoffSchema = z
     landmark: z.string().trim().max(120).optional(),
     recipientName: z.string().trim().max(60).optional(),
     recipientPhone: z.string().trim().max(20).optional(),
-    // the customer's GPS — powers fair distance-based pricing
+    // the customer's GPS — powers fair distance-based pricing AND the courier's map button
     lat: z.number().min(-90).max(90).optional(),
     lng: z.number().min(-180).max(180).optional(),
   })
@@ -26,8 +27,13 @@ export const createErrandSchema = z
     sourceStoreId: z.string().min(1).optional(),
     pickupText: z.string().trim().max(200).optional(),
     pickupZoneId: z.string().min(1).optional(),
+    /** The pickup pin, when the customer shared it — the courier navigates straight to it. */
+    pickupLat: z.number().min(-90).max(90).optional(),
+    pickupLng: z.number().min(-180).max(180).optional(),
     dropoff: dropoffSchema,
     purchaseBudget: z.number().int().positive().optional(),
+    /** نقل: which vehicle the job needs. Omitted = مشوار عادي (motorcycle). */
+    vehicleType: z.enum(VEHICLE_TYPES).optional(),
   })
   .strict();
 export type CreateErrandDto = z.infer<typeof createErrandSchema>;
@@ -39,6 +45,9 @@ export const errandQuoteSchema = z
     zoneId: z.string().min(1),
     lat: z.coerce.number().min(-90).max(90).optional(),
     lng: z.coerce.number().min(-180).max(180).optional(),
+    pickupLat: z.coerce.number().min(-90).max(90).optional(),
+    pickupLng: z.coerce.number().min(-180).max(180).optional(),
+    vehicleType: z.enum(VEHICLE_TYPES).optional(),
   })
   .strict();
 export type ErrandQuoteDto = z.infer<typeof errandQuoteSchema>;
@@ -52,7 +61,11 @@ export const recordRemittanceSchema = z
   .strict();
 export type RecordRemittanceDto = z.infer<typeof recordRemittanceSchema>;
 
-/** Admin edits the errand pricing + platform commission (all piastres; percent 0–100). */
+/**
+ * Admin edits the errand pricing + platform commission (all piastres; percent 0–100).
+ * `vehicleMultipliers` keeps ONE fee formula: the نقل vehicles are priced as a
+ * percentage of the normal fee (100 = same as a motorcycle).
+ */
 export const errandPricingSchema = z
   .object({
     baseFee: z.number().int().positive().optional(),
@@ -60,6 +73,7 @@ export const errandPricingSchema = z
     minFee: z.number().int().min(0).optional(),
     commissionPercent: z.number().min(0).max(100).optional(),
     remittanceLimit: z.number().int().min(0).optional(),
+    vehicleMultipliers: z.record(z.enum(VEHICLE_TYPES), z.number().int().min(1).max(5000)).optional(),
   })
   .strict();
 export type ErrandPricingDto = z.infer<typeof errandPricingSchema>;

@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   StoreListingType,
   UserStatus,
+  VehicleType,
 } from './enums';
 import type { ServiceTypeConfig } from './schemas/service-type-config.schema';
 
@@ -196,6 +197,9 @@ export interface AddressSnapshot {
   apartment: string | null;
   landmark: string | null;
   contactPhone: string | null;
+  /** the exact spot, when the customer shared it — powers the courier's map button */
+  lat: number | null;
+  lng: number | null;
 }
 
 // ─────────────── Merchant / Courier / Dispatch views ───────────────
@@ -234,12 +238,14 @@ export interface CourierTaskView {
   status: OrderStatus;
   assignmentStatus: 'ASSIGNED' | 'PICKED_UP';
   flowType: FlowType;
-  pickup: { name: string; phone: string; text: string | null } | null;
-  dropoff: { name: string; phone: string | null; zoneName: string; street: string; landmark: string | null } | null;
+  pickup: { name: string; phone: string; text: string | null; lat: number | null; lng: number | null } | null;
+  dropoff: { name: string; phone: string | null; zoneName: string; street: string; landmark: string | null; lat: number | null; lng: number | null } | null;
   cashToCollect: number;
   purchaseBudget: number | null;
   instructions: string | null;
   assignedAt: string;
+  /** the vehicle this job was booked for — null = مشوار عادي */
+  vehicleType: VehicleType | null;
 }
 
 export interface CourierSummaryView {
@@ -282,6 +288,7 @@ export interface DriverSettlementRow {
   phone: string;
   status: UserStatus;
   isAvailable: boolean;
+  vehicleType: VehicleType;
   deliveries: number;
   earnings: number;
   balanceDue: number;
@@ -308,6 +315,7 @@ export interface CourierListItemView {
   phone: string;
   isAvailable: boolean;
   activeTasks: number;
+  vehicleType: VehicleType;
 }
 
 /** An available courier ranked by proximity to an order's pickup point. */
@@ -318,6 +326,7 @@ export interface CourierSuggestionView {
   activeTasks: number;
   distanceKm: number | null; // null when the courier hasn't reported a location
   etaMins: number | null;
+  vehicleType: VehicleType;
 }
 
 export interface NotificationView {
@@ -389,4 +398,14 @@ export interface CourierOfferView {
   distanceKm: number | null;
   etaMins: number | null;
   expiresAt: string;
+  /** which vehicle the job needs — null = أي مندوب */
+  vehicleType: VehicleType | null;
+}
+
+/** The courier's own registration — what they drive decides which jobs reach them. */
+export interface CourierProfileView {
+  name: string | null;
+  phone: string;
+  vehicleType: VehicleType;
+  isAvailable: boolean;
 }

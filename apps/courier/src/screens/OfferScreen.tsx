@@ -1,6 +1,6 @@
 import type { CourierOfferView } from '@sprintgo/shared';
-import { formatMoney } from '@sprintgo/shared';
-import { Banknote, Check, MapPin, Package, ShoppingBasket, X } from 'lucide-react';
+import { formatMoney, vehicleLabel } from '@sprintgo/shared';
+import { Banknote, Check, MapPin, Package, ShoppingBasket, Truck, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { acceptOffer, getOffer, rejectOffer } from '../lib/courier';
@@ -108,6 +108,22 @@ export function OfferScreen() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8' }}>المطلوب</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginTop: 2, lineHeight: 1.5 }}>{offer.instructions}</div>
+            </div>
+          </div>
+        )}
+
+        {/* نقل: which vehicle this job was booked for */}
+        {offer.vehicleType && (
+          <div
+            className="sg-card"
+            style={{ padding: 18, marginTop: 14, display: 'flex', gap: 14, alignItems: 'center' }}
+          >
+            <div style={{ width: 46, height: 46, borderRadius: 14, background: '#EDE9FE', display: 'grid', placeItems: 'center', color: '#5B21B6', flex: 'none' }}>
+              <Truck size={22} strokeWidth={1.75} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8' }}>نقل بـ</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{vehicleLabel(offer.vehicleType)}</div>
             </div>
           </div>
         )}

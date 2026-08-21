@@ -8,6 +8,7 @@ import {
   recordRemittanceSchema,
   toggleAvailabilitySchema,
   updateZoneSchema,
+  updateDriverVehicleSchema,
   upsertProductSchema,
 } from '@sprintgo/shared';
 import type {
@@ -18,6 +19,7 @@ import type {
   ErrandPricingDto,
   RecordRemittanceDto,
   ToggleAvailabilityDto,
+  UpdateDriverVehicleDto,
   UpdateZoneDto,
   UpsertProductDto,
 } from '@sprintgo/shared';
@@ -159,6 +161,15 @@ export class AdminController {
   @RequirePermissions('drivers.view')
   driverReport(@Param('id') id: string, @Query('month') month?: string) {
     return this.delivery.courierReport(id, month);
+  }
+
+  @Patch('drivers/:id/vehicle')
+  @RequirePermissions('drivers.manage')
+  setDriverVehicle(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateDriverVehicleSchema)) dto: UpdateDriverVehicleDto,
+  ) {
+    return this.admin.setDriverVehicle(id, dto.vehicleType);
   }
 
   @Post('drivers/:id/block')
