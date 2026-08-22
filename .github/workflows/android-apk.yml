@@ -19,7 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [customer, courier]
+        # google-services.json is per Android app (it names the package), so each
+        # app reads its own secret rather than sharing one
+        include:
+          - app: customer
+            firebaseSecret: GOOGLE_SERVICES_JSON_CUSTOMER
+          - app: courier
+            firebaseSecret: GOOGLE_SERVICES_JSON_COURIER
     # prisma generate (api postinstall) reads this but never connects during a build
     env:
       DATABASE_URL: postgresql://user:pass@localhost:5432/sprintgo
@@ -55,6 +61,13 @@ jobs:
       - name: Add Android platform
         working-directory: apps/${{ matrix.app }}
         run: npx cap add android
+
+      # Firebase (push) is applied to the freshly generated project. Without the
+      # secret this is a no-op and the APK simply ships without push.
+      - name: Wire Firebase for push
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets[matrix.firebaseSecret] }}
+        run: node scripts/android-firebase.mjs apps/${{ matrix.app }}
 
       - name: Sync web assets into Android
         working-directory: apps/${{ matrix.app }}

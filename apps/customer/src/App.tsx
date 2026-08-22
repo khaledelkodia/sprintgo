@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-
 import type { ReactNode } from 'react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { CartProvider } from './lib/cart';
+import { usePush } from './lib/usePush';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './screens/HomeScreen';
 import { LoginScreen } from './screens/LoginScreen';
@@ -17,6 +18,17 @@ import { CartScreen } from './screens/CartScreen';
 import { ComingSoonScreen } from './screens/ComingSoonScreen';
 import { AddressesScreen } from './screens/AddressesScreen';
 import { NotificationsScreen } from './screens/NotificationsScreen';
+
+/**
+ * Native push lives here rather than in a screen: it must survive navigation and
+ * needs both the router (to open an order on tap) and the session (a token is
+ * only useful once we know whose phone it is). Renders nothing.
+ */
+function PushBridge() {
+  const { isLoggedIn } = useAuth();
+  usePush(isLoggedIn);
+  return null;
+}
 
 /** Gate for actions that need a signed-in customer (guest browsing stays open). */
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -46,6 +58,7 @@ export function App() {
     <AuthProvider>
       <CartProvider>
         <HashRouter>
+          <PushBridge />
           <Routes>
             <Route path="/login" element={<LoginScreen />} />
             <Route element={<TabLayout />}>

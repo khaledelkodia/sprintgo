@@ -37,3 +37,28 @@ pnpm --filter @sprintgo/courier dev    # :5176
 Dev login: any valid Egyptian mobile (e.g. `01012345678`). The OTP is printed in the **api console** (mock SMS provider) and, in development, returned as `devCode` on the OTP request.
 
 Useful pages: `/` (staff landing), `/staff-login` (admin + merchant), `/login` (courier OTP), `/dev/ui` (design-system playground).
+
+## Push notifications (Firebase)
+
+Push is **off until a Firebase project is wired in**, and everything keeps working
+without it — the apps still poll, the in-app notification centre still fills up.
+Turning it on takes three pieces:
+
+1. **Create a Firebase project** and add two Android apps to it, with these exact
+   package names: `com.sprintgo.customer` and `com.sprintgo.courier`.
+   Download each app's `google-services.json`.
+2. **Give CI the files** — one repository secret per app, holding that app's JSON
+   (raw or base64): `GOOGLE_SERVICES_JSON_CUSTOMER` and `GOOGLE_SERVICES_JSON_COURIER`.
+   [`scripts/android-firebase.mjs`](scripts/android-firebase.mjs) applies it to the
+   generated Android project on every APK build; without the secret it no-ops and
+   the APK builds push-free.
+3. **Give the API a service account** — in Firebase, *Project settings → Service
+   accounts → Generate new private key*, then set `FCM_PROJECT_ID`,
+   `FCM_CLIENT_EMAIL` and `FCM_PRIVATE_KEY` (keep the `\n` escapes) in the API's
+   environment.
+
+The API logs `FCM enabled (project …)` at boot when all three are present, and
+`FCM disabled — …` when they are not.
+
+> One Firebase project covers both apps; each Android app still has its own
+> `google-services.json`, which is why there are two secrets.

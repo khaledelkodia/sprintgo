@@ -1,6 +1,16 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { subscribePushSchema, unsubscribePushSchema } from '@sprintgo/shared';
-import type { SubscribePushDto, UnsubscribePushDto } from '@sprintgo/shared';
+import {
+  registerDeviceSchema,
+  subscribePushSchema,
+  unregisterDeviceSchema,
+  unsubscribePushSchema,
+} from '@sprintgo/shared';
+import type {
+  RegisterDeviceDto,
+  SubscribePushDto,
+  UnregisterDeviceDto,
+  UnsubscribePushDto,
+} from '@sprintgo/shared';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/guards/jwt-auth.guard';
@@ -31,6 +41,25 @@ export class PushController {
   @UseGuards(JwtAuthGuard)
   async unsubscribe(@Body(new ZodValidationPipe(unsubscribePushSchema)) dto: UnsubscribePushDto) {
     await this.push.unsubscribe(dto.endpoint);
+    return { ok: true };
+  }
+
+  /** A phone hands over its FCM token so push reaches it while the app is closed. */
+  @Post('device')
+  @UseGuards(JwtAuthGuard)
+  async registerDevice(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(registerDeviceSchema)) dto: RegisterDeviceDto,
+  ) {
+    await this.push.registerDevice(user.id, dto);
+    return { ok: true };
+  }
+
+  /** On logout — this phone should stop receiving the previous user's alerts. */
+  @Post('device/unregister')
+  @UseGuards(JwtAuthGuard)
+  async unregisterDevice(@Body(new ZodValidationPipe(unregisterDeviceSchema)) dto: UnregisterDeviceDto) {
+    await this.push.unregisterDevice(dto.token);
     return { ok: true };
   }
 }

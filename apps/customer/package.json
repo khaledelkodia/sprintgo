@@ -15,6 +15,7 @@
   "dependencies": {
     "@capacitor/android": "^6.2.0",
     "@capacitor/core": "^6.2.0",
+    "@capacitor/push-notifications": "^6.0.5",
     "@sprintgo/shared": "workspace:*",
     "leaflet": "^1.9.4",
     "lucide-react": "0.446.0",

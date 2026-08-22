@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { PublicUser } from '@sprintgo/shared';
 import { api, ApiError, setToken } from './api';
+import { unregisterPush } from './usePush';
 
 interface OtpRequested {
   retryAfterSec: number;
@@ -82,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // drop the phone from push FIRST — after the token is cleared the call would
+    // be unauthenticated, and the next user would inherit these notifications
+    void unregisterPush();
     // clear local session immediately so logout never hangs on the network,
     // then revoke server-side in the background (best effort)
     setUser(null);

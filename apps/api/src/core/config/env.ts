@@ -19,6 +19,11 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:ops@sprintgo.app'),
+  // Firebase Cloud Messaging — reaches the Android apps when they are closed.
+  // All three must be set together; push to phones is off when any is missing.
+  FCM_PROJECT_ID: z.string().optional(),
+  FCM_CLIENT_EMAIL: z.string().optional(),
+  FCM_PRIVATE_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

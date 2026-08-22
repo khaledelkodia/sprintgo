@@ -1,5 +1,6 @@
 import { HashRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
+import { usePush } from './lib/usePush';
 import { BottomNav } from './components/BottomNav';
 import { LoginScreen } from './screens/LoginScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -44,6 +45,15 @@ function NotCourier({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+/**
+ * Native push, mounted inside the router so a tapped offer can open the countdown
+ * screen. Renders nothing.
+ */
+function PushBridge() {
+  usePush(true); // only mounted past the auth gate
+  return null;
+}
+
 /** Couriers must be signed in with a COURIER account. */
 function Gate() {
   const { user, isLoggedIn, logout } = useAuth();
@@ -51,6 +61,7 @@ function Gate() {
   if (!user?.roles?.includes('COURIER')) return <NotCourier onLogout={logout} />;
   return (
     <HashRouter>
+      <PushBridge />
       <Routes>
         <Route element={<TabLayout />}>
           <Route path="/" element={<HomeScreen />} />

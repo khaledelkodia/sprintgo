@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { PublicUser } from '@sprintgo/shared';
 import { api, ApiError, setToken } from './api';
+import { unregisterPush } from './usePush';
 
 interface OtpRequested {
   retryAfterSec: number;
@@ -79,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // drop the phone from push while the token is still valid — otherwise the
+    // next courier on this phone inherits these alerts
+    void unregisterPush();
     setUser(null);
     persist(null);
     setToken(null);
