@@ -15,6 +15,8 @@ import { StoresScreen } from './screens/StoresScreen';
 import { StoreDetailScreen } from './screens/StoreDetailScreen';
 import { CartScreen } from './screens/CartScreen';
 import { ComingSoonScreen } from './screens/ComingSoonScreen';
+import { AddressesScreen } from './screens/AddressesScreen';
+import { NotificationsScreen } from './screens/NotificationsScreen';
 
 /** Gate for actions that need a signed-in customer (guest browsing stays open). */
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -57,6 +59,9 @@ export function App() {
             <Route path="/store/:slug" element={<StoreDetailScreen />} />
             <Route path="/cart" element={<RequireAuth><CartScreen /></RequireAuth>} />
             <Route path="/soon" element={<ComingSoonScreen />} />
+            {/* account: the address book + the notification centre */}
+            <Route path="/addresses" element={<RequireAuth><AddressesScreen /></RequireAuth>} />
+            <Route path="/notifications" element={<RequireAuth><NotificationsScreen /></RequireAuth>} />
             {/* errand + tracking */}
             <Route path="/order" element={<RequireAuth><OrderFlowScreen /></RequireAuth>} />
             <Route path="/track/:id" element={<RequireAuth><TrackingScreen /></RequireAuth>} />

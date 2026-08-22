@@ -123,6 +123,8 @@ export interface AddressView {
   apartment: string | null;
   landmark: string | null;
   contactPhone: string | null;
+  lat: number | null;
+  lng: number | null;
   isDefault: boolean;
 }
 
@@ -408,4 +410,19 @@ export interface CourierProfileView {
   phone: string;
   vehicleType: VehicleType;
   isAvailable: boolean;
+}
+
+/**
+ * Who is bringing the order and where they are right now — the customer's live
+ * map. `lat`/`lng` come from the courier's heartbeat, so they are null until the
+ * courier's phone has reported a position.
+ */
+export interface OrderCourierView {
+  name: string | null;
+  phone: string;
+  vehicleType: VehicleType;
+  lat: number | null;
+  lng: number | null;
+  /** when the position was last reported (ISO) — the UI can age it out */
+  at: string | null;
 }

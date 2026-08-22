@@ -37,3 +37,7 @@ export const getReport = (month?: string) =>
 
 /** The courier's own registration — which vehicle they are listed for. */
 export const getMe = () => api<CourierProfileView>('/courier/me');
+
+/** Report the courier's position (nearest-courier dispatch + the customer's map). */
+export const sendHeartbeat = (lat: number, lng: number) =>
+  api('/courier/heartbeat', { method: 'PATCH', body: { lat, lng } });

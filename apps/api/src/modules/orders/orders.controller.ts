@@ -43,6 +43,12 @@ export class OrdersController {
     return this.orders.getOwned(user.id, id);
   }
 
+  /** Who is delivering it + their last known position — the customer live map. */
+  @Get(':id/courier')
+  courier(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.orders.courierFor(user.id, id);
+  }
+
   @Post(':id/cancel')
   cancel(
     @CurrentUser() user: AuthUser,

@@ -1,12 +1,22 @@
 import { displayPhone } from '@sprintgo/shared';
-import { Bell, ChevronLeft, LifeBuoy, LogOut, MapPin, Package } from 'lucide-react';
+import { Bell, ChevronLeft, LogOut, MapPin, Package } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { unreadCount } from '../lib/notifications';
 
 export function ProfileScreen() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    unreadCount()
+      .then((r) => setUnread(r.count))
+      .catch(() => {});
+  }, [user]);
 
   function onLogout() {
     logout();
@@ -44,9 +54,8 @@ export function ProfileScreen() {
       {/* menu */}
       <div style={{ padding: '24px 20px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Row icon={Package} bg="#EFF6FF" color="#2563EB" label="طلباتي" onClick={() => navigate('/orders')} />
-        <Row icon={MapPin} bg="#F0FDF4" color="#16A34A" label="عناويني" />
-        <Row icon={Bell} bg="#FFF7ED" color="#EA580C" label="الإشعارات" />
-        <Row icon={LifeBuoy} bg="#F1F5F9" color="#475569" label="مركز المساعدة" />
+        <Row icon={MapPin} bg="#F0FDF4" color="#16A34A" label="عناويني" onClick={() => navigate('/addresses')} />
+        <Row icon={Bell} bg="#FFF7ED" color="#EA580C" label="الإشعارات" badge={unread} onClick={() => navigate('/notifications')} />
         <Row icon={LogOut} bg="#FEF2F2" color="#DC2626" label="تسجيل الخروج" danger onClick={onLogout} />
       </div>
     </div>
@@ -59,6 +68,7 @@ function Row({
   color,
   label,
   danger,
+  badge,
   onClick,
 }: {
   icon: LucideIcon;
@@ -66,6 +76,8 @@ function Row({
   color: string;
   label: string;
   danger?: boolean;
+  /** unread counter — hidden at zero so the row stays calm */
+  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -79,6 +91,24 @@ function Row({
         <Icon size={26} strokeWidth={1.75} />
       </div>
       <div style={{ flex: 1, fontSize: 17, fontWeight: 600, color: danger ? '#DC2626' : '#0F172A' }}>{label}</div>
+      {!!badge && badge > 0 && (
+        <div
+          style={{
+            minWidth: 26,
+            height: 26,
+            borderRadius: 999,
+            background: '#EF4444',
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'grid',
+            placeItems: 'center',
+            padding: '0 8px',
+          }}
+        >
+          {badge > 9 ? '+9' : badge}
+        </div>
+      )}
       {!danger && <ChevronLeft size={22} strokeWidth={1.75} color="#CBD5E1" />}
     </button>
   );

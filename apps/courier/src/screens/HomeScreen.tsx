@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { getMe, getOffer, getSummary, getTasks, getWallet, setAvailability } from '../lib/courier';
+import { useHeartbeat } from '../lib/useHeartbeat';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -41,6 +42,9 @@ export function HomeScreen() {
   }, []);
 
   const blocked = wallet?.isBlocked ?? false;
+
+  // while online, keep the platform posted on where we are
+  useHeartbeat(online);
 
   // while online, watch for an incoming offer and jump to it
   useEffect(() => {

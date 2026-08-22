@@ -11,6 +11,9 @@ export const createAddressSchema = z
     apartment: z.string().trim().max(20).optional(),
     landmark: z.string().trim().max(120).optional(),
     contactPhone: z.string().trim().max(20).optional(),
+    // the pin, when the customer shares it — this is what gives the courier a map
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
     isDefault: z.boolean().optional(),
   })
   .strict();

@@ -2,6 +2,7 @@ import type {
   CreateErrandDto,
   ErrandQuoteView,
   OrderCardView,
+  OrderCourierView,
   OrderView,
   VehicleType,
   ZoneView,
@@ -35,3 +36,6 @@ export const listMyOrders = () => api<OrderCardView[]>('/orders');
 
 /** Cancel a placed order (before a courier is on the way). */
 export const cancelOrder = (id: string) => api(`/orders/${id}/cancel`, { method: 'POST', body: {} });
+
+/** Who is delivering the order and where they are — null until a courier accepts. */
+export const getOrderCourier = (id: string) => api<OrderCourierView | null>(`/orders/${id}/courier`);

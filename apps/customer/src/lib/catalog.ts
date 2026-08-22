@@ -1,6 +1,7 @@
 import type {
   AddressView,
   CreateAddressDto,
+  UpdateAddressDto,
   ErrandSourceView,
   OrderView,
   PlaceOrderDto,
@@ -27,3 +28,6 @@ export const placeOrder = (dto: PlaceOrderDto) => api<OrderView>('/orders', { me
 export const getAddresses = () => api<AddressView[]>('/addresses');
 export const createAddress = (dto: CreateAddressDto) =>
   api<AddressView>('/addresses', { method: 'POST', body: dto });
+export const updateAddress = (id: string, dto: UpdateAddressDto) =>
+  api<AddressView>(`/addresses/${id}`, { method: 'PATCH', body: dto });
+export const deleteAddress = (id: string) => api(`/addresses/${id}`, { method: 'DELETE' });

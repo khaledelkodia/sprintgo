@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type { Address, Zone } from '@prisma/client';
 import type {
   AddressSnapshot,
+  OrderCourierView,
   OrderView,
   PageMeta,
   PlaceOrderDto,
@@ -225,6 +226,29 @@ export class OrdersService {
     });
     if (!order) throw new DomainException('NOT_FOUND', 'الطلب مش موجود');
     return toOrderView(order);
+  }
+
+  /**
+   * Who is bringing this order and where they are — powers the customer's live map.
+   * Ownership rides in the WHERE clause; position comes from the courier heartbeat,
+   * so it stays null until their phone has reported one.
+   */
+  async courierFor(userId: string, orderId: string): Promise<OrderCourierView | null> {
+    const assignment = await this.prisma.deliveryAssignment.findFirst({
+      where: { orderId, order: { customerId: userId }, status: { in: ['ASSIGNED', 'PICKED_UP'] } },
+      include: { courier: { include: { courierProfile: true } } },
+      orderBy: { assignedAt: 'desc' },
+    });
+    if (!assignment) return null;
+    const p = assignment.courier.courierProfile;
+    return {
+      name: assignment.courier.name,
+      phone: assignment.courier.phone,
+      vehicleType: p?.vehicleType ?? 'MOTORCYCLE',
+      lat: p?.lat == null ? null : Number(p.lat),
+      lng: p?.lng == null ? null : Number(p.lng),
+      at: p?.lastLocationAt?.toISOString() ?? null,
+    };
   }
 
   async cancelOwned(userId: string, id: string, reason?: string): Promise<OrderView> {

@@ -16,6 +16,8 @@ function toAddressView(a: Address & { zone: Zone }): AddressView {
     apartment: a.apartment,
     landmark: a.landmark,
     contactPhone: a.contactPhone,
+    lat: a.lat == null ? null : Number(a.lat),
+    lng: a.lng == null ? null : Number(a.lng),
     isDefault: a.isDefault,
   };
 }
@@ -58,6 +60,8 @@ export class AddressesService {
           apartment: dto.apartment,
           landmark: dto.landmark,
           contactPhone: dto.contactPhone,
+          lat: dto.lat,
+          lng: dto.lng,
           isDefault: makeDefault,
         },
         include: { zone: true },

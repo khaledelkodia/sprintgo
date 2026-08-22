@@ -1,6 +1,6 @@
 import type { AddressView, ZoneView } from '@sprintgo/shared';
 import { formatMoney } from '@sprintgo/shared';
-import { ChevronRight, MapPin, Minus, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, LocateFixed, MapPin, Minus, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
@@ -20,6 +20,9 @@ export function CartScreen() {
   const label = 'البيت';
   const [zoneId, setZoneId] = useState('');
   const [street, setStreet] = useState('');
+  // the pin travels with the saved address, so the courier gets a map instead of a description
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
@@ -75,6 +78,20 @@ export function CartScreen() {
   const notServed = !!activeZoneId && !feeLoading && deliveryFee === null;
   const canPlace = !belowMin && !!activeZoneId && deliveryFee !== null && !placing && (!adding || street.trim().length >= 2);
 
+  /** Read the device GPS so the new address is saved with a real pin. */
+  function locate() {
+    if (!('geolocation' in navigator)) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
+
   async function place() {
     if (!cart) return;
     setError('');
@@ -86,7 +103,13 @@ export function CartScreen() {
       if (adding) {
         if (!zoneId) return setError('اختار منطقتك');
         if (street.trim().length < 2) return setError('اكتب عنوانك');
-        const addr = await createAddress({ label: label.trim() || 'البيت', zoneId, street: street.trim() });
+        const addr = await createAddress({
+          label: label.trim() || 'البيت',
+          zoneId,
+          street: street.trim(),
+          lat: coords?.lat,
+          lng: coords?.lng,
+        });
         addressId = addr.id;
       }
       if (!addressId) return setError('اختار مكان التوصيل');
@@ -186,6 +209,31 @@ export function CartScreen() {
             </div>
             <label style={{ ...lbl, marginTop: 16 }}>عنوانك</label>
             <input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="الشارع والعلامة المميزة" style={field} />
+            <button
+              type="button"
+              onClick={locate}
+              disabled={locating}
+              style={{
+                marginTop: 12,
+                width: '100%',
+                minHeight: 52,
+                borderRadius: 16,
+                border: `1.5px solid ${coords ? '#22C55E' : '#2563EB'}`,
+                background: coords ? '#F0FDF4' : '#EFF6FF',
+                color: coords ? '#15803D' : '#1D4ED8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <LocateFixed size={20} strokeWidth={1.75} />
+              {locating ? 'بنحدد موقعك…' : coords ? 'تمام، موقعك اتحدّد ✓' : 'حدّد موقعك (المندوب هيلاقيك بسهولة)'}
+            </button>
             {addresses.length > 0 && (
               <button type="button" onClick={() => setAdding(false)} style={{ fontSize: 14, fontWeight: 700, color: '#64748B', background: 'transparent', border: 'none', cursor: 'pointer', padding: '10px 0 0', textAlign: 'start' }}>
                 ← اختار من عناويني

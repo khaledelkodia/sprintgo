@@ -5,6 +5,7 @@ import { MapLink } from '../components/MapLink';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { enterGoodsCost, getTasks, markDelivered, pickupTask } from '../lib/courier';
+import { useHeartbeat } from '../lib/useHeartbeat';
 
 export function ActiveDeliveryScreen() {
   const navigate = useNavigate();
@@ -29,6 +30,8 @@ export function ActiveDeliveryScreen() {
   }
   useEffect(load, []);
 
+  // a live delivery is exactly when the customer is watching the map
+  useHeartbeat(true);
   const pickedUp = task?.assignmentStatus === 'PICKED_UP';
   const isErrand = task?.flowType === 'ERRAND';
   // a specific pickup place was named (customer's optional spot, or a store); otherwise the

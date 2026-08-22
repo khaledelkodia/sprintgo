@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Bell,
   Check,
   ChevronDown,
   MapPin,
@@ -9,25 +10,81 @@ import {
   ShoppingBag,
   Star,
   Store,
+  Truck,
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { StoreCardView } from '@sprintgo/shared';
+import type { OrderCardView, StoreCardView, ZoneView } from '@sprintgo/shared';
 import { formatMoney } from '@sprintgo/shared';
 import { SERVICES, serviceRoute, tileGradient } from '../lib/services';
 import { getStores } from '../lib/catalog';
+import { getZones, listMyOrders } from '../lib/orders';
+import { unreadCount } from '../lib/notifications';
+import { useAuth } from '../lib/auth';
 
-const GREETING_NAME = 'ليلى';
-const SHOW_ACTIVE_ORDER = true;
+const ZONE_KEY = 'sg_zone';
+/** Statuses that mean the order is still happening — anything else is history. */
+const LIVE: string[] = ['PLACED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
+
+/** "صباح الخير" before noon, "مساء الخير" after — the way people actually greet. */
+function greeting(): string {
+  return new Date().getHours() < 12 ? 'صباح الخير' : 'مساء الخير';
+}
 
 export function HomeScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [featured, setFeatured] = useState<StoreCardView[]>([]);
+  const [zones, setZones] = useState<ZoneView[]>([]);
+  const [zoneId, setZoneId] = useState<string>(() => {
+    try {
+      return localStorage.getItem(ZONE_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [zoneOpen, setZoneOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [active, setActive] = useState<OrderCardView | null>(null);
 
   useEffect(() => {
-    getStores().then((s) => setFeatured(s.slice(0, 6))).catch(() => {});
+    getZones().then(setZones).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setActive(null);
+      return;
+    }
+    unreadCount()
+      .then((r) => setUnread(r.count))
+      .catch(() => {});
+    // the live order gets a card at the top — one tap back into tracking
+    listMyOrders()
+      .then((list) => setActive(list.find((o) => LIVE.includes(o.status)) ?? null))
+      .catch(() => {});
+  }, [user]);
+
+  // the chosen zone decides which stores actually deliver to you
+  useEffect(() => {
+    getStores(zoneId ? { zoneId } : undefined)
+      .then((s) => setFeatured(s.slice(0, 6)))
+      .catch(() => {});
+  }, [zoneId]);
+
+  function pickZone(id: string) {
+    setZoneId(id);
+    try {
+      localStorage.setItem(ZONE_KEY, id);
+    } catch {
+      /* storage unavailable — the choice just won't survive a restart */
+    }
+    setZoneOpen(false);
+  }
+
+  const zoneName = zones.find((z) => z.id === zoneId)?.nameAr ?? 'اختار منطقتك';
+  const firstName = user?.name?.trim().split(' ')[0] ?? '';
 
   return (
     <div style={{ paddingBottom: 24 }}>
@@ -42,9 +99,11 @@ export function HomeScreen() {
       >
         <div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', lineHeight: 1.15 }}>
-            صباح الخير، {GREETING_NAME}
+            {greeting()}{firstName ? `، ${firstName}` : ''}
           </div>
-          <div
+          <button
+            type="button"
+            onClick={() => setZoneOpen(true)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -52,30 +111,110 @@ export function HomeScreen() {
               marginTop: 8,
               color: '#64748B',
               fontSize: 14,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
             }}
           >
             <MapPin size={16} strokeWidth={1.75} color="#2563EB" />
-            <span style={{ fontWeight: 600, color: '#334155' }}>دمياط الجديدة</span>
+            <span style={{ fontWeight: 600, color: '#334155' }}>{zoneName}</span>
             <ChevronDown size={15} strokeWidth={1.75} />
-          </div>
+          </button>
         </div>
-        <div
+        <button
+          type="button"
+          onClick={() => navigate('/notifications')}
+          aria-label="الإشعارات"
           style={{
+            position: 'relative',
             width: 52,
             height: 52,
             borderRadius: 999,
-            background: 'linear-gradient(145deg,#DBEAFE,#F1F5F9)',
+            background: '#fff',
             boxShadow: '0 8px 20px rgba(15,23,42,.1)',
             display: 'grid',
             placeItems: 'center',
-            fontSize: 10,
-            color: '#64748B',
-            fontFamily: 'var(--font-mono)',
+            color: '#334155',
+            border: 'none',
+            cursor: 'pointer',
+            flex: 'none',
           }}
         >
-          صورة
-        </div>
+          <Bell size={24} strokeWidth={1.75} />
+          {unread > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 8,
+                insetInlineEnd: 8,
+                minWidth: 20,
+                height: 20,
+                borderRadius: 999,
+                background: '#EF4444',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 800,
+                display: 'grid',
+                placeItems: 'center',
+                padding: '0 5px',
+                border: '2px solid #fff',
+              }}
+            >
+              {unread > 9 ? '+9' : unread}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* zone picker — which stores reach you depends on this */}
+      {zoneOpen && (
+        <div
+          onClick={() => setZoneOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', background: '#fff', borderRadius: '26px 26px 0 0', padding: '20px 20px 34px', maxHeight: '70vh', overflowY: 'auto' }}
+          >
+            <div style={{ width: 44, height: 5, borderRadius: 999, background: '#E2E8F0', margin: '0 auto 18px' }} />
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A' }}>بتطلب لفين؟</div>
+            <div style={{ fontSize: 14, color: '#64748B', marginTop: 6, marginBottom: 18 }}>
+              هنوريك المحلات اللي بتوصّل لمنطقتك.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {zones.map((z) => {
+                const on = z.id === zoneId;
+                return (
+                  <button
+                    key={z.id}
+                    type="button"
+                    onClick={() => pickZone(z.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      width: '100%',
+                      textAlign: 'start',
+                      borderRadius: 18,
+                      border: `1.5px solid ${on ? '#2563EB' : '#E2E8F0'}`,
+                      background: on ? '#EFF6FF' : '#fff',
+                      padding: '14px 16px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <MapPin size={20} strokeWidth={1.75} color={on ? '#2563EB' : '#94A3B8'} />
+                    <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>{z.nameAr}</span>
+                    {on && <Check size={22} strokeWidth={2.5} color="#2563EB" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* search → catalog */}
       <div style={{ padding: '20px 20px 0' }}>
@@ -189,10 +328,11 @@ export function HomeScreen() {
       </div>
 
       {/* active order */}
-      {SHOW_ACTIVE_ORDER && (
+      {/* the customer's REAL live order — hidden when there isn't one */}
+      {active && (
         <div style={{ padding: '20px 20px 0' }}>
           <div
-            onClick={() => navigate('/track/SG-4821')}
+            onClick={() => navigate(`/track/${active.id}`)}
             style={{ background: '#fff', borderRadius: 26, padding: 18, boxShadow: 'var(--shadow-card-lg)', cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -215,27 +355,25 @@ export function HomeScreen() {
                     background: 'linear-gradient(145deg,#DCFCE7,#E2E8F0)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: 10,
-                    color: '#64748B',
-                    fontFamily: 'var(--font-mono)',
+                    color: '#15803D',
                   }}
                 >
-                  صورة المندوب
+                  <Truck size={26} strokeWidth={1.75} />
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D', letterSpacing: '.04em' }}>
-                    يقترب
+                    طلب شغّال
                   </span>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: '#22C55E' }} />
-                  <span style={{ fontSize: 12, color: '#64748B' }}>يبعد 4 دقائق</span>
+                  <span dir="ltr" style={{ fontSize: 12, color: '#64748B' }}>{active.code}</span>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginTop: 4 }}>
-                  عمر في الطريق للاستلام
+                  {active.statusLabel}
                 </div>
                 <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
-                  طرد · تويوتا هايلكس · <span style={{ direction: 'ltr', display: 'inline-block' }}>4471</span>
+                  {active.storeName ?? 'مشوار'} · {formatMoney(active.total)}
                 </div>
               </div>
               <div
@@ -253,24 +391,6 @@ export function HomeScreen() {
               >
                 <Navigation size={22} strokeWidth={1.75} />
               </div>
-            </div>
-            <div
-              style={{
-                height: 6,
-                borderRadius: 999,
-                background: '#F1F5F9',
-                marginTop: 16,
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: '62%',
-                  height: '100%',
-                  borderRadius: 999,
-                  background: 'linear-gradient(90deg,#22C55E,#4ADE80)',
-                }}
-              />
             </div>
           </div>
         </div>

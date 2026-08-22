@@ -1,25 +1,32 @@
-import { formatMoney } from '@sprintgo/shared';
-import type { OrderView } from '@sprintgo/shared';
-import { Check, ChevronRight, MapPin, PartyPopper, Truck, X } from 'lucide-react';
+import { formatMoney, vehicleLabel } from '@sprintgo/shared';
+import type { OrderCourierView, OrderView } from '@sprintgo/shared';
+import { Check, ChevronRight, MapPin, PartyPopper, Phone, Truck, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { cancelOrder, getOrder } from '../lib/orders';
+import { cancelOrder, getOrder, getOrderCourier } from '../lib/orders';
+import { CourierMap } from '../components/CourierMap';
 
 export function TrackingScreen() {
   const navigate = useNavigate();
   const { id = '' } = useParams();
   const [order, setOrder] = useState<OrderView | null>(null);
+  const [courier, setCourier] = useState<OrderCourierView | null>(null);
   const [error, setError] = useState('');
   const timer = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
     let alive = true;
-    const load = () =>
+    const load = () => {
       getOrder(id)
         .then((o) => alive && setOrder(o))
         .catch(() => alive && setError('حصلت مشكلة بسيطة في تحميل حالة الطلب'));
+      // who is bringing it + where they are; null until a courier accepts
+      getOrderCourier(id)
+        .then((c) => alive && setCourier(c))
+        .catch(() => {});
+    };
     load();
-    timer.current = setInterval(load, 3000); // poll live status
+    timer.current = setInterval(load, 3000); // poll live status + position
     return () => {
       alive = false;
       clearInterval(timer.current);
@@ -77,6 +84,62 @@ export function TrackingScreen() {
             <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginTop: 18 }}>المندوب في الطريق</div>
             <div style={{ fontSize: 15, color: '#64748B', marginTop: 6 }}>مشوارك بدأ — تقدر تتابعه من هنا.</div>
           </div>
+
+          {/* who is bringing it — with a one-tap call, the way elderly users prefer */}
+          {courier && (
+            <div className="sg-card" style={{ padding: 16, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 999,
+                  background: 'linear-gradient(145deg,#DBEAFE,#F1F5F9)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: '#2563EB',
+                  flex: 'none',
+                }}
+              >
+                {(courier.name ?? '؟').slice(0, 1)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#0F172A' }}>{courier.name ?? 'المندوب'}</div>
+                <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>{vehicleLabel(courier.vehicleType)}</div>
+              </div>
+              <a
+                href={`tel:${courier.phone}`}
+                aria-label="اتصل بالمندوب"
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 18,
+                  background: '#22C55E',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#fff',
+                  flex: 'none',
+                  boxShadow: '0 8px 18px rgba(34,197,94,.35)',
+                }}
+              >
+                <Phone size={24} strokeWidth={2} />
+              </a>
+            </div>
+          )}
+
+          {/* live map — only once the courier's phone has actually reported a position */}
+          {courier?.lat != null && courier.lng != null && (
+            <div style={{ marginBottom: 14 }}>
+              <CourierMap
+                lat={courier.lat}
+                lng={courier.lng}
+                dropLat={order.addressSnapshot?.lat}
+                dropLng={order.addressSnapshot?.lng}
+              />
+            </div>
+          )}
+
           <Timeline order={order} />
         </div>
       )}
