@@ -3,6 +3,13 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-01',
 
+  // The web is a staff-only dashboard behind a login (ADR-012): there is nothing
+  // to server-render that the visitor is allowed to see before they authenticate,
+  // so SSR only produced a guest shell that the client immediately re-rendered —
+  // which is what the hydration mismatches were. Shipping it as an SPA also takes
+  // the render work off the API box.
+  ssr: false,
+
   modules: ['@pinia/nuxt', '@vueuse/nuxt'],
 
   // Design-system primitives keep their `Sg*` name (no `Ui` dir-prefix);

@@ -1,7 +1,11 @@
 <script setup lang="ts">
-const today = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(
-  new Date(),
-);
+// Computed on the client only: the server's clock and timezone are not the
+// dispatcher's, and rendering "today" during SSR makes the two disagree at
+// hydration (and shows the wrong day either side of midnight).
+const today = ref('');
+onMounted(() => {
+  today.value = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+});
 </script>
 
 <template>
