@@ -1,11 +1,12 @@
 import type { CourierProfileView, CourierSummaryView, CourierTaskView, CourierWalletView } from '@sprintgo/shared';
 import { formatMoney, vehicleLabel } from '@sprintgo/shared';
 import { AlertTriangle, Banknote, Navigation, Package, Power, Truck, Wallet, Zap } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { getMe, getOffer, getSummary, getTasks, getWallet, setAvailability } from '../lib/courier';
 import { useHeartbeat } from '../lib/useHeartbeat';
+import { useRealtimeEvent } from '../lib/realtime';
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -23,7 +24,6 @@ export function HomeScreen() {
   const [wallet, setWallet] = useState<CourierWalletView | null>(null);
   const [task, setTask] = useState<CourierTaskView | null>(null);
   const [me, setMe] = useState<CourierProfileView | null>(null);
-  const poll = useRef<ReturnType<typeof setInterval>>();
 
   function loadWallet() {
     getWallet()
@@ -46,20 +46,22 @@ export function HomeScreen() {
   // while online, keep the platform posted on where we are
   useHeartbeat(online);
 
-  // while online, watch for an incoming offer and jump to it
-  useEffect(() => {
-    clearInterval(poll.current);
+  /** Open the offer screen if one is actually waiting for us. */
+  const checkOffer = useCallback(() => {
     if (!online) return;
-    const check = () =>
-      getOffer()
-        .then((offer) => {
-          if (offer) navigate('/offer');
-        })
-        .catch(() => {});
-    check();
-    poll.current = setInterval(check, 2000); // near-instant pickup of new offers
-    return () => clearInterval(poll.current);
+    getOffer()
+      .then((offer) => {
+        if (offer) navigate('/offer');
+      })
+      .catch(() => {});
   }, [online, navigate]);
+
+  // The server pushes the offer the moment dispatch picks us — this used to hammer
+  // the API every 2 seconds for the whole shift. We still read once when we come
+  // online (an offer may already be waiting) and once after a reconnect.
+  useRealtimeEvent('order:offer', checkOffer);
+  useRealtimeEvent('connect', checkOffer);
+  useEffect(checkOffer, [checkOffer]);
 
   // re-assert availability to the backend on load if we were online (survives reloads)
   useEffect(() => {

@@ -1,9 +1,10 @@
 import { formatMoney, vehicleLabel } from '@sprintgo/shared';
 import type { OrderCourierView, OrderView } from '@sprintgo/shared';
 import { Check, ChevronRight, MapPin, PartyPopper, Phone, Truck, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelOrder, getOrder, getOrderCourier } from '../lib/orders';
+import { useOrderRoom, useRealtimeEvent } from '../lib/realtime';
 import { CourierMap } from '../components/CourierMap';
 
 export function TrackingScreen() {
@@ -12,26 +13,33 @@ export function TrackingScreen() {
   const [order, setOrder] = useState<OrderView | null>(null);
   const [courier, setCourier] = useState<OrderCourierView | null>(null);
   const [error, setError] = useState('');
-  const timer = useRef<ReturnType<typeof setInterval>>();
 
-  useEffect(() => {
-    let alive = true;
-    const load = () => {
-      getOrder(id)
-        .then((o) => alive && setOrder(o))
-        .catch(() => alive && setError('حصلت مشكلة بسيطة في تحميل حالة الطلب'));
-      // who is bringing it + where they are; null until a courier accepts
-      getOrderCourier(id)
-        .then((c) => alive && setCourier(c))
-        .catch(() => {});
-    };
-    load();
-    timer.current = setInterval(load, 3000); // poll live status + position
-    return () => {
-      alive = false;
-      clearInterval(timer.current);
-    };
+  const load = useCallback(() => {
+    getOrder(id)
+      .then(setOrder)
+      .catch(() => setError('حصلت مشكلة بسيطة في تحميل حالة الطلب'));
+    // who is bringing it + where they are; null until a courier accepts
+    getOrderCourier(id)
+      .then(setCourier)
+      .catch(() => {});
   }, [id]);
+
+  // one read on open; after that the server tells us when something changed —
+  // no polling, so a screen left open all evening costs nothing
+  useEffect(load, [load]);
+  useOrderRoom(id);
+  useRealtimeEvent('order:status', load);
+  useRealtimeEvent('order:assigned', load);
+  useRealtimeEvent('order:cancelled', load);
+  // a dropped socket may have missed an event — catch up once on reconnect
+  useRealtimeEvent('connect', load);
+
+  // the courier's position arrives as coordinates; no need to refetch anything
+  useRealtimeEvent('courier:location', (payload) => {
+    const p = payload as { orderId?: string; lat?: number; lng?: number };
+    if (p?.orderId !== id || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+    setCourier((c) => (c ? { ...c, lat: p.lat!, lng: p.lng!, at: new Date().toISOString() } : c));
+  });
 
   const status = order?.status;
   const searching = status === 'PLACED' || status === 'PREPARING' || status === 'READY';

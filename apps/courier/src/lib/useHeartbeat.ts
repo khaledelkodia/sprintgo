@@ -1,18 +1,26 @@
 import { useEffect } from 'react';
 import { sendHeartbeat } from './courier';
+import { connectRealtime, useOrderRoom } from './realtime';
 
-/** How often the phone reports where it is. Frequent enough for a live map,
- *  rare enough not to eat the battery on a full shift. */
-const EVERY_MS = 20_000;
+/** One GPS read serves both the dispatch heartbeat and the customer's map. */
+const EVERY_MS = 15_000;
 
 /**
- * Push the courier's GPS to the backend while they are working. This is what
- * makes "أقرب مندوب" real and what the customer's tracking map draws — without
- * it the platform only ever knows where the courier was when they were seeded.
- * Silent by design: a courier who denied location still gets offers, just
- * ranked without distance.
+ * Report where the courier is while they are working.
+ *
+ * Two consumers, one reading:
+ *  - REST `PATCH /courier/heartbeat` stores it, which is what makes "أقرب مندوب"
+ *    rank on reality instead of on where the courier was seeded;
+ *  - a `courier:ping` on the socket relays it straight to whoever is watching
+ *    that order, so the customer's map moves without anyone polling.
+ *
+ * Silent by design: a courier who denied location still gets offers, just ranked
+ * without distance.
  */
-export function useHeartbeat(active: boolean): void {
+export function useHeartbeat(active: boolean, orderId?: string): void {
+  // being in the order room is what authorises the ping relay
+  useOrderRoom(active ? orderId : undefined);
+
   useEffect(() => {
     if (!active || !('geolocation' in navigator)) return;
 
@@ -20,10 +28,13 @@ export function useHeartbeat(active: boolean): void {
     const report = () =>
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          if (alive) void sendHeartbeat(pos.coords.latitude, pos.coords.longitude).catch(() => {});
+          if (!alive) return;
+          const { latitude: lat, longitude: lng } = pos.coords;
+          void sendHeartbeat(lat, lng).catch(() => {});
+          if (orderId) connectRealtime()?.emit('courier:ping', { orderId, lat, lng });
         },
         () => {},
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 15_000 },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 10_000 },
       );
 
     report();
@@ -32,5 +43,5 @@ export function useHeartbeat(active: boolean): void {
       alive = false;
       clearInterval(timer);
     };
-  }, [active]);
+  }, [active, orderId]);
 }

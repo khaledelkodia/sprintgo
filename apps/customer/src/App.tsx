@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { CartProvider } from './lib/cart';
 import { usePush } from './lib/usePush';
+import { useRealtime } from './lib/realtime';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './screens/HomeScreen';
 import { LoginScreen } from './screens/LoginScreen';
@@ -27,6 +28,7 @@ import { NotificationsScreen } from './screens/NotificationsScreen';
 function PushBridge() {
   const { isLoggedIn } = useAuth();
   usePush(isLoggedIn);
+  useRealtime(isLoggedIn);
   return null;
 }
 

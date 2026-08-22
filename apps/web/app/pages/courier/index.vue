@@ -138,7 +138,9 @@ async function submitGoods() {
   }
 }
 
-const { pause, resume } = useIntervalFn(() => load(), 15_000, { immediate: false });
+// the socket does the real work; this is a safety net for a dropped connection,
+// not a poll — see docs/architecture/06
+const { pause, resume } = useIntervalFn(() => load(), 60_000, { immediate: false });
 let offAssigned: (() => void) | undefined;
 let offOffer: (() => void) | undefined;
 let offRevoked: (() => void) | undefined;

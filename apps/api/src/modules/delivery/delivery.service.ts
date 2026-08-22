@@ -49,6 +49,9 @@ export class DeliveryService {
       this.prisma.order.findUnique({ where: { id: orderId }, select: { storeId: true, customerId: true, code: true } }),
     ]);
     const rooms = [rtRooms.courier(courierId), rtRooms.order(orderId)];
+    // the customer's own room too — "a courier is coming" should reach them whether
+    // or not they happen to have the tracking screen open
+    if (order?.customerId) rooms.push(rtRooms.user(order.customerId));
     if (order?.storeId) rooms.push(rtRooms.store(order.storeId));
     this.realtime.emitMany(rooms, RT_EVENTS.orderAssigned, {
       orderId,

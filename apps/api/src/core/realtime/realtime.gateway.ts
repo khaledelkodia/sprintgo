@@ -12,6 +12,7 @@ import type { Server, Socket } from 'socket.io';
 import type { Role } from '@sprintgo/shared';
 import { rtRooms } from '@sprintgo/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { corsOrigins } from '../config/cors';
 import { parseCookie } from './cookie.util';
 
 interface SocketData {
@@ -20,11 +21,14 @@ interface SocketData {
 }
 
 /**
- * Read-only realtime hints (docs/architecture/06). Auth reuses the sg_at cookie
- * from the handshake — same single origin as REST (ADR-003). Clients only manage
- * room membership here; all business writes stay on REST.
+ * Read-only realtime hints (docs/architecture/06). Clients only manage room
+ * membership here; all business writes stay on REST.
+ *
+ * Two kinds of client authenticate here: the web dashboard rides its `sg_at`
+ * cookie (same origin, ADR-003), while the packaged apps send a Bearer token in
+ * the handshake — a WebView cannot rely on a cross-origin httpOnly cookie.
  */
-@WebSocketGateway({ namespace: '/rt', cors: false })
+@WebSocketGateway({ namespace: '/rt', cors: { origin: corsOrigins(), credentials: true } })
 export class RealtimeGateway implements OnGatewayConnection {
   private readonly logger = new Logger('Realtime');
 
@@ -36,8 +40,17 @@ export class RealtimeGateway implements OnGatewayConnection {
     private readonly prisma: PrismaService,
   ) {}
 
+  /** Handshake token: app Bearer first, then the browser's cookie. */
+  private tokenFrom(client: Socket): string | null {
+    const auth = client.handshake.auth as { token?: string } | undefined;
+    if (auth?.token) return auth.token;
+    const header = client.handshake.headers.authorization;
+    if (header?.startsWith('Bearer ')) return header.slice(7);
+    return parseCookie(client.handshake.headers.cookie, 'sg_at');
+  }
+
   async handleConnection(client: Socket): Promise<void> {
-    const token = parseCookie(client.handshake.headers.cookie, 'sg_at');
+    const token = this.tokenFrom(client);
     if (!token) return this.reject(client);
 
     let payload: { sub: string; roles?: Role[] };

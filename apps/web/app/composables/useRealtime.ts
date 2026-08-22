@@ -12,16 +12,13 @@ const joinedRooms = new Set<string>();
 
 function ensure(): Socket | null {
   if (!import.meta.client) return null;
-  // The Nuxt dev proxy's websocket forwarding can abort mid-write and crash the
-  // whole dev server (write ECONNABORTED) — which knocked the dashboard offline
-  // right after login. Realtime is a read-only enhancement and the app already
-  // falls back to REST + 15s polling, so we skip the socket in dev and connect
-  // only in real builds, where there's no dev proxy in the websocket path.
-  if (import.meta.dev) return null;
   if (!socket) {
-    // default transports: connect via polling (works through the dev proxy) then
-    // upgrade to websocket. Forcing websocket-first fails silently behind the proxy.
-    socket = io('/rt', {
+    // In dev we connect STRAIGHT to the API rather than through Nuxt: Nitro's
+    // websocket forwarding aborts mid-write and takes the whole dev server down
+    // (write ECONNABORTED). Both are localhost, so the sg_at cookie is same-site
+    // and still rides along. In a real build the socket is same-origin.
+    const base = import.meta.dev ? 'http://localhost:4000' : '';
+    socket = io(`${base}/rt`, {
       path: '/socket.io',
       withCredentials: true,
     });

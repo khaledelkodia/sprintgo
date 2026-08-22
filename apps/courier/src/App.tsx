@@ -1,6 +1,7 @@
 import { HashRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
 import { usePush } from './lib/usePush';
+import { useRealtime } from './lib/realtime';
 import { BottomNav } from './components/BottomNav';
 import { LoginScreen } from './screens/LoginScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -51,6 +52,7 @@ function NotCourier({ onLogout }: { onLogout: () => void }) {
  */
 function PushBridge() {
   usePush(true); // only mounted past the auth gate
+  useRealtime(true);
   return null;
 }
 

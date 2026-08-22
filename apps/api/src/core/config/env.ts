@@ -24,6 +24,9 @@ const envSchema = z.object({
   FCM_PROJECT_ID: z.string().optional(),
   FCM_CLIENT_EMAIL: z.string().optional(),
   FCM_PRIVATE_KEY: z.string().optional(),
+  // Extra browser origins allowed to call the API + open a socket, comma-separated.
+  // The packaged apps' own origins are always allowed (see core/config/cors.ts).
+  CORS_ORIGINS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

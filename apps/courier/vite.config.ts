@@ -9,6 +9,8 @@ export default defineConfig({
     port: 5176,
     proxy: {
       '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      // the realtime socket sits beside /api on the same backend
+      '/socket.io': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
     },
   },
   build: { outDir: 'dist', sourcemap: false },

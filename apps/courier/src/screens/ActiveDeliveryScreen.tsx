@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { enterGoodsCost, getTasks, markDelivered, pickupTask } from '../lib/courier';
 import { useHeartbeat } from '../lib/useHeartbeat';
+import { useRealtimeEvent } from '../lib/realtime';
 
 export function ActiveDeliveryScreen() {
   const navigate = useNavigate();
@@ -31,7 +32,11 @@ export function ActiveDeliveryScreen() {
   useEffect(load, []);
 
   // a live delivery is exactly when the customer is watching the map
-  useHeartbeat(true);
+  useHeartbeat(true, task?.orderId);
+
+  // the customer may cancel while we are on the way — hear it instead of polling
+  useRealtimeEvent('order:status', load);
+  useRealtimeEvent('order:cancelled', load);
   const pickedUp = task?.assignmentStatus === 'PICKED_UP';
   const isErrand = task?.flowType === 'ERRAND';
   // a specific pickup place was named (customer's optional spot, or a store); otherwise the

@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { env } from './core/config/env';
+import { corsOrigins } from './core/config/cors';
 import { AppModule } from './app.module';
 import { EnvelopeInterceptor } from './common/interceptors/envelope.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -23,6 +24,10 @@ async function bootstrap() {
     res.setHeader('X-Request-Id', id);
     next();
   });
+
+  // the packaged apps run from their own origin — without this they cannot
+  // reach a hosted API at all (the web dashboard is same-origin and unaffected)
+  app.enableCors({ origin: corsOrigins(), credentials: true });
 
   app.use(helmet());
   app.use(cookieParser(env.COOKIE_SECRET));

@@ -70,7 +70,9 @@ async function confirmReject() {
 
 // realtime hint: a new order pings instantly; polling stays as the fallback
 const rt = useRealtime();
-const { pause, resume } = useIntervalFn(() => load(), 15_000, { immediate: false });
+// the socket does the real work; this is a safety net for a dropped connection,
+// not a poll — see docs/architecture/06
+const { pause, resume } = useIntervalFn(() => load(), 60_000, { immediate: false });
 let offNew: (() => void) | undefined;
 let offStatus: (() => void) | undefined;
 onMounted(async () => {
