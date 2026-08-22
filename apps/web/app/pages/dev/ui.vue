@@ -81,11 +81,6 @@ const mockOffer = {
     </section>
 
     <section class="flex flex-col gap-3">
-      <h2 class="text-xl font-bold text-ink">SgCourierMap (تتبّع المندوب)</h2>
-      <SgCourierMap :lat="29.9626" :lng="31.2497" />
-    </section>
-
-    <section class="flex flex-col gap-3">
       <h2 class="text-xl font-bold text-ink">CourierOfferCard (عرض تلقائي)</h2>
       <CourierOfferCard :offer="mockOffer" />
     </section>

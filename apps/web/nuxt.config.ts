@@ -25,7 +25,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'ar', dir: 'rtl' },
-      title: 'سبرنت جو — اطلب في ثواني',
+      title: 'سبرنت جو — لوحة التحكم',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#ffffff' },

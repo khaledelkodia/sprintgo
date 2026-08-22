@@ -1,116 +1,57 @@
 <script setup lang="ts">
-import { useCatalog } from '~/features/catalog/composables/useCatalog';
-import { useLocationStore } from '~/features/catalog/stores/location.store';
 import { useAuthStore } from '~/features/auth/stores/auth.store';
 
-definePageMeta({ layout: 'customer' });
+/**
+ * The web is the STAFF surface — admin, merchant and courier boards. Customers
+ * order from the phone app, so this page just routes staff to their own board
+ * and tells everyone else where ordering lives.
+ */
+definePageMeta({ layout: 'bare' });
 
-const catalog = useCatalog();
-const location = useLocationStore();
 const auth = useAuthStore();
 
-const activeVertical = ref<string | null>(null);
-const zoneSheetOpen = ref(false);
-
-// verticals rarely change → SSR-cached
-const { data: serviceTypes } = await useAsyncData('service-types', () => catalog.getServiceTypes());
-
-onMounted(async () => {
-  await location.loadZones();
-  if (location.needsZone) zoneSheetOpen.value = true;
+const staffHome = computed(() => {
+  const roles = auth.user?.roles ?? [];
+  if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) return '/admin';
+  if (roles.includes('MERCHANT')) return '/merchant';
+  if (roles.includes('COURIER')) return '/courier';
+  return null;
 });
 
-// stores depend on the chosen zone + vertical filter
-const { data: stores, pending: storesPending, refresh: refreshStores } = await useAsyncData(
-  'home-stores',
-  () =>
-    catalog.getStores({
-      zoneId: location.selectedZoneId ?? undefined,
-      serviceType: activeVertical.value ?? undefined,
-    }),
-  { watch: [() => location.selectedZoneId, activeVertical], immediate: true },
-);
-
-function onVertical(st: { slug: string; flowType: string }) {
-  // errand verticals (مشوار) open the free-form request screen, not a store list
-  if (st.flowType === 'ERRAND') {
-    navigateTo('/errand');
-    return;
-  }
-  activeVertical.value = activeVertical.value === st.slug ? null : st.slug;
-}
+// the session restores asynchronously (auth-init plugin), so watch rather than
+// check once on mount — otherwise a logged-in admin sees this page flash by
+watchEffect(() => {
+  if (staffHome.value) navigateTo(staffHome.value, { replace: true });
+});
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <!-- location header -->
-    <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-surface px-4">
-      <button type="button" class="flex items-center gap-1.5 text-start" @click="zoneSheetOpen = true">
-        <SgIcon name="map-pin" :size="20" class="text-primary-600" />
-        <span class="flex flex-col leading-tight">
-          <span class="text-xs text-ink-soft">التوصيل إلى</span>
-          <span class="flex items-center gap-1 text-base font-bold text-ink">
-            {{ location.selectedZone?.nameAr ?? 'اختار منطقتك' }}
-            <SgIcon name="chevron" :size="14" class="-rotate-90 text-ink-soft" />
-          </span>
-        </span>
-      </button>
-      <div class="flex items-center gap-1">
-        <SgNotificationBell v-if="auth.isLoggedIn" />
-        <span class="text-lg font-bold text-primary-700">سبرنت جو</span>
+  <div class="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col justify-center gap-8 px-6 py-10">
+    <header class="flex flex-col items-center gap-3 text-center">
+      <div class="flex size-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+        <SgIcon name="truck" :size="32" />
       </div>
+      <h1 class="text-3xl font-bold text-ink">سبرنت جو</h1>
+      <p class="text-base leading-relaxed text-ink-soft">
+        لوحة التحكم — للإدارة وأصحاب المحلات والمناديب.
+      </p>
     </header>
 
-    <main class="flex flex-col gap-6 p-5 pb-24">
-      <!-- verticals -->
-      <section>
-        <div class="grid grid-cols-3 gap-3">
-          <template v-if="serviceTypes">
-            <SgServiceCard
-              v-for="st in serviceTypes"
-              :key="st.id"
-              :name-ar="st.nameAr"
-              :icon="st.icon"
-              :active="activeVertical === st.slug"
-              @click="onVertical(st)"
-            />
-          </template>
-          <template v-else>
-            <SgSkeleton v-for="i in 6" :key="i" variant="card" class="h-24" />
-          </template>
-        </div>
-      </section>
+    <div class="flex flex-col gap-3">
+      <SgButton size="xl" block @click="navigateTo('/staff-login')">
+        دخول الإدارة وأصحاب المحلات
+      </SgButton>
+      <SgButton variant="secondary" size="xl" block @click="navigateTo('/login')">
+        دخول المناديب
+      </SgButton>
+    </div>
 
-      <!-- stores -->
-      <section class="flex flex-col gap-3">
-        <h2 class="text-xl font-bold text-ink">
-          {{ activeVertical ? serviceTypes?.find((s) => s.slug === activeVertical)?.nameAr : 'كل المحلات' }}
-        </h2>
-
-        <template v-if="storesPending">
-          <SgSkeleton v-for="i in 4" :key="i" variant="card" class="h-20" />
-        </template>
-
-        <template v-else-if="stores && stores.length">
-          <SgStoreCard
-            v-for="store in stores"
-            :key="store.id"
-            :store="store"
-            @click="store.isOpenNow && navigateTo(`/s/${store.slug}`)"
-          />
-        </template>
-
-        <SgEmptyState
-          v-else
-          icon="search"
-          title="مفيش محلات في منطقتك دلوقتي"
-          hint="جرب منطقة تانية أو قسم مختلف — بنضيف محلات جديدة كل يوم."
-        >
-          <SgButton variant="secondary" @click="zoneSheetOpen = true">غيّر المنطقة</SgButton>
-        </SgEmptyState>
-      </section>
-    </main>
-
-    <ZonePickerSheet v-model:open="zoneSheetOpen" @update:open="!$event && refreshStores()" />
+    <div class="flex gap-3 rounded-2xl border border-line bg-surface-alt p-4">
+      <SgIcon name="phone" :size="22" class="mt-0.5 shrink-0 text-primary-600" />
+      <div class="text-sm leading-relaxed text-ink-soft">
+        <span class="font-bold text-ink">عايز تطلب؟</span>
+        الطلب بقى من تطبيق سبرنت جو على الموبايل — أسهل وأسرع، وفيه المشوار والمحلات والنقل كله.
+      </div>
+    </div>
   </div>
 </template>
