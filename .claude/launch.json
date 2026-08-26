@@ -4,20 +4,44 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sprintgo/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sprintgo/web",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "customer",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sprintgo/customer", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sprintgo/customer",
+        "dev"
+      ],
       "port": 5175
     },
     {
       "name": "courier",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sprintgo/courier", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sprintgo/courier",
+        "dev"
+      ],
       "port": 5176
+    },
+    {
+      "name": "customer-dist",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sprintgo/customer",
+        "preview",
+        "--port",
+        "5180"
+      ],
+      "port": 5180
     }
   ]
 }

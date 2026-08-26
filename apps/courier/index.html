@@ -8,12 +8,21 @@
     />
     <meta name="theme-color" content="#F8FAFC" />
     <title>سبرينت جو كابتن</title>
+    <!--
+      The webfont must never hold up first paint. As a render-blocking stylesheet
+      it kept the packaged app on a blank screen for as long as the phone took to
+      reach Google — which on mobile data, or with no signal at all, is the whole
+      time. Loaded as "print" it is fetched without blocking, then switched on.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
   </head>
   <body>
     <div id="root"></div>

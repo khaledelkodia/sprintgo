@@ -443,7 +443,8 @@ main()
     const bySuite = new Map();
     for (const r of results) {
       const s = bySuite.get(r.suite) ?? { pass: 0, fail: 0 };
-      r.pass ? s.pass++ : s.fail++;
+      if (r.pass) s.pass++;
+      else s.fail++;
       bySuite.set(r.suite, s);
     }
     console.log('\n\x1b[1m════════════ SUMMARY ════════════\x1b[0m');

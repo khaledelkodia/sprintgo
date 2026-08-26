@@ -46,7 +46,13 @@ jobs:
       - name: Build shared contract
         run: pnpm --filter @sprintgo/shared build
 
+      # Where the packaged app looks for the API. Set the repository variable
+      # API_BASE_URL (Settings → Secrets and variables → Actions → Variables) to
+      # something like https://api.example.com/api/v1 once the API is hosted;
+      # without it the APK has nowhere to call.
       - name: Build ${{ matrix.app }} web bundle
+        env:
+          VITE_API_BASE: ${{ vars.API_BASE_URL }}
         run: pnpm --filter @sprintgo/${{ matrix.app }} build
 
       - uses: actions/setup-java@v4
