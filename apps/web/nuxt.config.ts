@@ -10,6 +10,9 @@ export default defineNuxtConfig({
   // the render work off the API box.
   ssr: false,
 
+  // bind to the LAN as well, so a phone on the same Wi-Fi can open the dashboard
+  devServer: { host: '0.0.0.0' },
+
   modules: ['@pinia/nuxt', '@vueuse/nuxt'],
 
   // Design-system primitives keep their `Sg*` name (no `Ui` dir-prefix);

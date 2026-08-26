@@ -23,6 +23,8 @@ const stripCrossorigin = {
 export default defineConfig({
   plugins: [react(), tailwindcss(), stripCrossorigin],
   server: {
+    // listen on the LAN too, so a phone on the same Wi-Fi can open the app
+    host: true,
     port: 5175,
     proxy: {
       '/api': { target: 'http://localhost:4000', changeOrigin: true },

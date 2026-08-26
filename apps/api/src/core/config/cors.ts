@@ -24,7 +24,14 @@ export function corsOrigins(): (string | RegExp)[] {
     .map((o) => o.trim())
     .filter(Boolean);
   const origins: (string | RegExp)[] = [...APP_ORIGINS, ...extra];
-  // dev servers: the Nuxt dashboard and both Vite apps, on any port
-  if (env.NODE_ENV !== 'production') origins.push(/^http:\/\/localhost:\d+$/);
+  if (env.NODE_ENV !== 'production') {
+    // dev servers: the Nuxt dashboard and both Vite apps, on any port
+    origins.push(/^http:\/\/localhost:\d+$/);
+    // and the same machine reached over the LAN, so a phone on the same Wi-Fi
+    // can hit the API directly (private ranges only, dev only)
+    origins.push(/^http:\/\/(?:10|127)\.\d+\.\d+\.\d+(?::\d+)?$/);
+    origins.push(/^http:\/\/192\.168\.\d+\.\d+(?::\d+)?$/);
+    origins.push(/^http:\/\/172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+(?::\d+)?$/);
+  }
   return origins;
 }
