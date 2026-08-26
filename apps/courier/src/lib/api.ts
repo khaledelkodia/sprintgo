@@ -93,8 +93,14 @@ export async function api<T>(path: string, opts: ApiOpts = {}): Promise<T> {
       env?.error?.details,
     );
   }
-  // enveloped responses return their data even when it's null (e.g. "no offer");
-  // non-enveloped bodies return the raw json.
-  if (env && typeof env === 'object' && 'success' in env) return env.data as T;
-  return json as T;
+  // Every API response is enveloped (`{ success, data }`), so anything else did
+  // not come from the API — most often the packaged app's own server answering
+  // a relative /api path with index.html, status 200. Returning that as data
+  // hands every screen a null where it expected a list. Fail loudly instead:
+  // callers already handle a rejected request. `data` may still be null on
+  // purpose (e.g. "no offer right now") — that is a real answer and passes.
+  if (!env || typeof env !== 'object' || !('success' in env)) {
+    throw new ApiError('NETWORK', 'مش قادرين نوصل للسيرفر دلوقتي — اتأكد من النت وحاوِل تاني');
+  }
+  return env.data as T;
 }

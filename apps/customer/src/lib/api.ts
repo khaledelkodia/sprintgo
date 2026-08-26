@@ -86,7 +86,7 @@ export async function api<T>(path: string, opts: ApiOpts = {}): Promise<T> {
   try {
     json = await res.json();
   } catch {
-    /* empty/non-json body */
+    /* empty/non-json body — handled below */
   }
 
   const env = json as { success?: boolean; data?: T; error?: { code: string; message: string; details?: unknown } } | null;
@@ -97,7 +97,15 @@ export async function api<T>(path: string, opts: ApiOpts = {}): Promise<T> {
       env?.error?.details,
     );
   }
-  // enveloped responses return their data even when it's null; non-enveloped return raw json.
-  if (env && typeof env === 'object' && 'success' in env) return env.data as T;
-  return json as T;
+
+  // Every API response is enveloped (`{ success, data }`), so anything else did
+  // not come from the API — most often the packaged app's own server answering
+  // a relative /api path with index.html, status 200. Returning that as data
+  // handed every screen a null where it expected a list, which is exactly how
+  // the app died on boot with "Cannot read properties of null". Fail loudly:
+  // callers already handle a rejected request.
+  if (!env || typeof env !== 'object' || !('success' in env)) {
+    throw new ApiError('NETWORK', 'مش قادرين نوصل للسيرفر دلوقتي — اتأكد من النت وحاوِل تاني');
+  }
+  return env.data as T;
 }
