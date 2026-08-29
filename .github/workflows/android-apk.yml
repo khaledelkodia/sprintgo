@@ -12,6 +12,11 @@ on:
       - 'packages/shared/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
+    inputs:
+      apiBase:
+        description: 'API base URL to bake into this APK (overrides the API_BASE_URL variable). e.g. http://192.168.1.5:4000/api/v1'
+        required: false
+        type: string
 
 jobs:
   apk:
@@ -26,9 +31,13 @@ jobs:
             firebaseSecret: GOOGLE_SERVICES_JSON_CUSTOMER
           - app: courier
             firebaseSecret: GOOGLE_SERVICES_JSON_COURIER
-    # prisma generate (api postinstall) reads this but never connects during a build
     env:
+      # prisma generate (api postinstall) reads this but never connects during a build
       DATABASE_URL: postgresql://user:pass@localhost:5432/sprintgo
+      # Where the packaged app looks for the API. A manual run can override the
+      # repository variable — handy for pointing an APK at a machine on the LAN.
+      # capacitor.config.ts reads it too, so it must be set for every step below.
+      VITE_API_BASE: ${{ inputs.apiBase || vars.API_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,13 +55,17 @@ jobs:
       - name: Build shared contract
         run: pnpm --filter @sprintgo/shared build
 
-      # Where the packaged app looks for the API. Set the repository variable
-      # API_BASE_URL (Settings → Secrets and variables → Actions → Variables) to
-      # something like https://api.example.com/api/v1 once the API is hosted;
-      # without it the APK has nowhere to call.
+      # A wrong or missing URL is invisible until the app fails on the phone —
+      # print it so the run itself says which backend this APK will talk to.
+      - name: Show which API this APK will talk to
+        run: |
+          if [ -z "$VITE_API_BASE" ]; then
+            echo "::warning::No API URL set — this APK has nothing to call. Set the API_BASE_URL variable, or pass one when running the workflow manually."
+          else
+            echo "This APK will call: $VITE_API_BASE"
+          fi
+
       - name: Build ${{ matrix.app }} web bundle
-        env:
-          VITE_API_BASE: ${{ vars.API_BASE_URL }}
         run: pnpm --filter @sprintgo/${{ matrix.app }} build
 
       - uses: actions/setup-java@v4
