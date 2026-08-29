@@ -38,6 +38,10 @@ jobs:
       # repository variable — handy for pointing an APK at a machine on the LAN.
       # capacitor.config.ts reads it too, so it must be set for every step below.
       VITE_API_BASE: ${{ inputs.apiBase || vars.API_BASE_URL }}
+      # Push is only compiled in when this app actually has a google-services.json.
+      # Calling FCM without one crashes the app natively the moment a user signs in,
+      # so the bundle has to know before it is built.
+      VITE_PUSH_ENABLED: ${{ secrets[matrix.firebaseSecret] != '' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +68,7 @@ jobs:
           else
             echo "This APK will call: $VITE_API_BASE"
           fi
+          if [ "$VITE_PUSH_ENABLED" = "1" ]; then echo "Push: ON (Firebase configured)"; else echo "Push: OFF (no google-services.json for this app)"; fi
 
       - name: Build ${{ matrix.app }} web bundle
         run: pnpm --filter @sprintgo/${{ matrix.app }} build

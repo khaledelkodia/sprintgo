@@ -4,6 +4,16 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from './api';
 
+/**
+ * Push is only wired in when the APK was built with a google-services.json.
+ *
+ * Without one, PushNotifications.register() reaches FirebaseMessaging, which
+ * throws NATIVELY — `Default FirebaseApp is not initialized` — and Android
+ * kills the process ("keeps stopping"). A JS try/catch never sees it. So the
+ * only safe guard is to know at build time and not call the plugin at all.
+ */
+const PUSH_ENABLED = import.meta.env.VITE_PUSH_ENABLED === '1';
+
 /** Remembered so logout can tell the backend to stop pushing to this phone. */
 let currentToken: string | null = null;
 
@@ -12,7 +22,7 @@ const register = (token: string) =>
 
 /** Stop this phone receiving the signed-out courier's alerts. Best-effort. */
 export async function unregisterPush(): Promise<void> {
-  if (!currentToken) return;
+  if (!PUSH_ENABLED || !currentToken) return;
   try {
     await api('/push/device/unregister', { method: 'POST', body: { token: currentToken } });
   } catch {
@@ -29,7 +39,7 @@ export function usePush(signedIn: boolean): void {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!signedIn || !Capacitor.isNativePlatform()) return;
+    if (!signedIn || !PUSH_ENABLED || !Capacitor.isNativePlatform()) return;
     let alive = true;
 
     const setup = async () => {
